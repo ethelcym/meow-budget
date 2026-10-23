@@ -110,7 +110,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div id="rp-seg" class="flex gap-1 bg-slate-200/70 p-1 rounded-2xl"></div>
       <div class="grid grid-cols-3 gap-2 text-center" id="rp-sum"></div>
       <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm border-b pb-2">📊 支出分類彙總</div><div id="rp-break" class="space-y-2"></div></div>
-      <div class="bg-slate-900 text-white p-4 rounded-3xl space-y-2"><div class="text-sm font-bold text-amber-400">⚖️ 「共同」拆帳結算（50/50）</div><div id="settle" class="text-xs space-y-1.5 bg-slate-800 p-3 rounded-2xl"></div></div>
+      <div class="bg-slate-900 text-white p-4 rounded-3xl space-y-3"><div class="text-sm font-bold text-amber-400">⚖️ 共同／個人代付結算</div><div id="settle" class="text-xs space-y-1.5 bg-slate-800 p-3 rounded-2xl"></div><div class="border-t border-slate-700 pt-3 space-y-2"><div class="text-xs font-bold">記錄還款（唔會當成新開支）</div><div class="grid grid-cols-2 gap-2"><label class="text-[11px] text-slate-300">還款人<select id="repay-from" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2"><option>Mrs Meow</option><option>Mr Meow</option></select></label><label class="text-[11px] text-slate-300">收款人<select id="repay-to" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2"><option>Mr Meow</option><option>Mrs Meow</option></select></label></div><div class="grid grid-cols-2 gap-2"><label class="text-[11px] text-slate-300">還款金額 ($)<input id="repay-amount" type="number" min="0.01" step="0.01" inputmode="decimal" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2" placeholder="0.00"></label><label class="text-[11px] text-slate-300">還款日期<input id="repay-date" type="date" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2"></label></div><input id="repay-note" maxlength="200" class="w-full text-slate-800 bg-white rounded-xl px-3 py-2 text-xs" placeholder="備註（可選）"><button type="button" onclick="submitRepayment()" class="w-full bg-amber-400 text-slate-900 font-bold rounded-xl py-2.5 text-sm">＋ 記錄還款</button></div><div><div class="text-xs font-bold mb-2">還款紀錄</div><div id="repay-list" class="space-y-1.5 text-xs"></div></div></div>
     </section>
 
     <section id="view-settings" class="hidden p-4 space-y-3">
@@ -402,6 +402,30 @@ function renderRecords(){
 }
 function editTx(id){const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.shares&&t.group==='共同'&&Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
 function delTx(id){if(!confirm('確定刪除此筆記帳？'))return;S.tx=S.tx.filter(t=>t.id!==id);if(save()){toast('紀錄已刪除');renderRecords()}}
+function currentSettlement(){
+ const balance={'Mrs Meow':0,'Mr Meow':0};let tracked=0,legacy=0,repaid=0;
+ S.tx.filter(t=>t.type==='expense').forEach(t=>{
+  if(!t.shares){if(t.group==='共同')legacy+=Math.round(Number(t.amount)*100)||0;return}
+  const amount=Math.round(Number(t.amount)*100),a=Math.round(Number(t.shares['Mrs Meow']||0)*100),b=Math.round(Number(t.shares['Mr Meow']||0)*100);
+  if(a+b!==amount||!P.includes(t.payer))return;
+  tracked+=amount;balance['Mrs Meow']-=a;balance['Mr Meow']-=b;balance[t.payer]+=amount;
+ });
+ S.repayments.forEach(r=>{const amount=Math.round(Number(r.amount)*100);if(amount>0&&P.includes(r.from)&&P.includes(r.to)&&r.from!==r.to){balance[r.from]+=amount;balance[r.to]-=amount;repaid+=amount}});
+ const diff=balance['Mrs Meow'],outstanding=Math.abs(diff)/100;
+ return {tracked,legacy,repaid,balance,outstanding,debtor:diff>0?'Mr Meow':diff<0?'Mrs Meow':null,creditor:diff>0?'Mrs Meow':diff<0?'Mr Meow':null};
+}
+function submitRepayment(){
+ const from=$('repay-from').value,to=$('repay-to').value,amount=Number($('repay-amount').value),date=$('repay-date').value||ld(),note=$('repay-note').value.trim(),st=currentSettlement();
+ if(!P.includes(from)||!P.includes(to)||from===to)return toast('請選擇不同的還款人及收款人。',true);
+ if(!Number.isFinite(amount)||amount<=0)return toast('請輸入大於 0 的還款金額。',true);
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return toast('請選擇有效還款日期。',true);
+ if(!st.debtor||from!==st.debtor||to!==st.creditor)return toast('還款方向與目前欠款方向不一致。',true);
+ if(Math.round(amount*100)>Math.round(st.outstanding*100))return toast('還款金額不可超過目前欠款。',true);
+ const old=S.repayments;S.repayments=[...old,{id:uid(),from,to,amount:Math.round(amount*100)/100,date,note}];
+ if(!save()){S.repayments=old;return}
+ $('repay-amount').value='';$('repay-note').value='';toast('還款已記錄，原本開支不會被刪除。');renderReports();
+}
+function deleteRepayment(id){if(!confirm('確定刪除此筆還款紀錄？原本開支會保留。'))return;const old=S.repayments;S.repayments=old.filter(r=>r.id!==id);if(save()){toast('還款紀錄已刪除');renderReports()}else S.repayments=old}
 function setRG(g){U.rGroup=g;renderReports()}
 function renderReports(){
  $('rp-seg').innerHTML=seg(['合計',...G],U.rGroup,'setRG');
@@ -409,16 +433,11 @@ function renderReports(){
  $('rp-sum').innerHTML=[['收入',inc,'text-emerald-600'],['支出',tot,'text-red-500'],['結餘',bal,bal<0?'text-red-500':'text-slate-800']].map(([n,v,c])=>`<div class="bg-slate-50 rounded-2xl p-2.5 border border-slate-100"><div class="text-[11px] text-slate-400">${n}</div><div class="font-extrabold text-sm ${c}">${money(v)}</div></div>`).join('');
  let h='';mains('expense',true).forEach(m=>{const mt=ex.filter(t=>t.categoryId===m.id),mv=sum(mt);if(!mv)return;const rows=S.cats.filter(c=>c.parentId===m.id).map(s=>[s.name,sum(mt.filter(t=>t.subCategoryId===s.id))]);rows.push(['未細分',sum(mt.filter(t=>!t.subCategoryId||!cat(t.subCategoryId)))]);h+=`<div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-100"><div class="flex justify-between text-xs font-bold"><span>${esc(m.icon||'')} ${esc(m.name)} <span class="text-[10px] text-slate-400 font-normal">(${tot?(mv/tot*100).toFixed(1):'0.0'}%)</span></span><span>${money(mv)}</span></div>${rows.filter(r=>r[1]>0).map(r=>`<div class="flex justify-between text-xs text-slate-500 pl-5 py-0.5"><span>• ${esc(r[0])}</span><span>${money(r[1])}</span></div>`).join('')}</div>`});
  $('rp-break').innerHTML=h||'<div class="text-center text-xs text-slate-400 py-6">本月尚無支出紀錄</div>';
- const balance={'Mrs Meow':0,'Mr Meow':0};let tracked=0,legacy=0;
- S.tx.filter(t=>t.type==='expense').forEach(t=>{
-  if(!t.shares){if(t.group==='共同')legacy+=Number(t.amount)||0;return}
-  const amount=Math.round(Number(t.amount)*100),a=Math.round(Number(t.shares['Mrs Meow']||0)*100),b=Math.round(Number(t.shares['Mr Meow']||0)*100);
-  if(a+b!==amount||!P.includes(t.payer))return;
-  tracked+=amount;balance['Mrs Meow']-=a;balance['Mr Meow']-=b;balance[t.payer]+=amount;
- });
- let repaid=0;S.repayments.forEach(r=>{const amount=Math.round(Number(r.amount)*100);if(amount>0&&P.includes(r.from)&&P.includes(r.to)&&r.from!==r.to){balance[r.from]+=amount;balance[r.to]-=amount;repaid+=amount}});
- const diff=balance['Mrs Meow'],outstanding=Math.abs(diff)/100,debtor=diff>0?'Mr Meow':diff<0?'Mrs Meow':null,creditor=diff>0?'Mrs Meow':diff<0?'Mr Meow':null;
- $('settle').innerHTML=`<div class="text-[11px] text-slate-400 mb-2">按所有已設定分攤的開支計算，欠款會跨月累積。</div><div class="flex justify-between text-slate-300"><span>已納入結算的開支</span><b class="text-white">${money(tracked/100)}</b></div><div class="flex justify-between text-slate-300"><span>已記錄還款</span><b class="text-white">${money(repaid/100)}</b></div><div class="pt-2 border-t border-slate-700 text-[12px]">${!debtor||outstanding<0.005?'✅ 已平帳，無需轉帳':`👉 <b class="text-amber-300">${debtor}</b> 尚欠 <b class="text-amber-300">${money(outstanding)}</b> 畀 ${creditor}`}</div>${legacy>0?`<div class="text-[11px] text-amber-300 mt-2">另有 ${money(legacy)} 舊共同開支未設定分攤，為免改動舊帳，暫未納入欠款計算。</div>`:''}`;
+ const st=currentSettlement();
+ $('settle').innerHTML=`<div class="text-[11px] text-slate-400 mb-2">按所有已設定分攤的開支計算，欠款會跨月累積。</div><div class="flex justify-between text-slate-300"><span>已納入結算的開支</span><b class="text-white">${money(st.tracked/100)}</b></div><div class="flex justify-between text-slate-300"><span>已記錄還款</span><b class="text-white">${money(st.repaid/100)}</b></div><div class="pt-2 border-t border-slate-700 text-[12px]">${!st.debtor||st.outstanding<0.005?'✅ 已平帳，無需轉帳':`👉 <b class="text-amber-300">${st.debtor}</b> 尚欠 <b class="text-amber-300">${money(st.outstanding)}</b> 畀 ${st.creditor}`}</div>${st.legacy>0?`<div class="text-[11px] text-amber-300 mt-2">另有 ${money(st.legacy/100)} 舊共同開支未設定分攤，為免改動舊帳，暫未納入欠款計算。</div>`:''}`;
+ if(!$('repay-date').value)$('repay-date').value=ld();
+ $('repay-from').value=st.debtor||'Mr Meow';$('repay-to').value=st.creditor||'Mrs Meow';
+ $('repay-list').innerHTML=S.repayments.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<div class="flex justify-between gap-2 bg-slate-800 rounded-xl p-2"><span class="min-w-0">${esc(r.date)} · ${esc(r.from)} → ${esc(r.to)}${r.note?' · '+esc(r.note):''}</span><span class="shrink-0 font-bold">${money(r.amount)} <button type="button" onclick="deleteRepayment('${esc(r.id)}')" class="ml-1 text-amber-300" aria-label="刪除還款紀錄">✕</button></span></div>`).join('')||'<div class="text-slate-400">暫無還款紀錄</div>';
 }
 function renderSettings(){
  const t=$('nc-type').value,p=$('nc-parent').value;
