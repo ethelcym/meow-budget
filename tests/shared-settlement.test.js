@@ -99,38 +99,37 @@ function calculateSettlement(transactions, repayments = []) {
 module.exports = { PEOPLE, calculateSettlement };
 
 
-// Tests are kept in this file so the accounting model can be reviewed in isolation.
-if (require.main === module) {
-  const assert = require('node:assert/strict');
-  const { test } = require('node:test');
-  const shared = (amount, payer, a, b) => ({type:'expense', group:'共同', amount, payer, shares:{'Mrs Meow':a,'Mr Meow':b}});
-  test('HK$600 shared equally, Mrs pays all: Mr owes Mrs HK$300', () => {
-    const r = calculateSettlement([shared(600,'Mrs Meow',300,300)]);
-    assert.equal(r.householdExpense,600); assert.equal(r.outstanding,300);
-    assert.equal(r.debtor,'Mr Meow'); assert.equal(r.creditor,'Mrs Meow');
-  });
-  test('partial repayment of HK$100 leaves HK$200 outstanding', () => {
-    const r = calculateSettlement([shared(600,'Mrs Meow',300,300)],[{from:'Mr Meow',to:'Mrs Meow',amount:100}]);
-    assert.equal(r.outstanding,200); assert.equal(r.totalRepaid,100);
-  });
-  test('personal expense: Mrs advances HK$800 for Mr, Mr owes Mrs HK$800', () => {
-    const tx={type:'expense',group:'Mr Meow',amount:800,payer:'Mrs Meow',shares:{'Mrs Meow':0,'Mr Meow':800}};
-    const r=calculateSettlement([tx]); assert.equal(r.outstanding,800);
-    assert.equal(r.debtor,'Mr Meow'); assert.equal(r.creditor,'Mrs Meow');
-  });
-  test('shared expense paid by both in proportion to their shares nets to zero', () => {
-    const r=calculateSettlement([shared(600,'Mrs Meow',300,300),shared(400,'Mr Meow',200,200)]);
-    assert.equal(r.outstanding,0); assert.equal(r.householdExpense,1000);
-  });
-  test('custom split respects shares and identifies who owes whom', () => {
-    const r=calculateSettlement([shared(600,'Mr Meow',400,200)]);
-    assert.equal(r.outstanding,200); assert.equal(r.debtor,'Mrs Meow'); assert.equal(r.creditor,'Mr Meow');
-  });
-  test('rejects shares that do not add up to the transaction total', () => {
-    assert.throws(() => calculateSettlement([shared(600,'Mrs Meow',300,200)]), /add up/);
-  });
-  test('legacy records without explicit shares are not silently reinterpreted', () => {
-    const r=calculateSettlement([{type:'expense',group:'共同',amount:600,payer:'Mrs Meow'}]);
-    assert.equal(r.householdExpense,0); assert.equal(r.outstanding,0);
-  });
-}
+// Tests run automatically with: node --test tests/shared-settlement.test.js
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+const shared = (amount, payer, a, b) => ({type:'expense', group:'共同', amount, payer, shares:{'Mrs Meow':a,'Mr Meow':b}});
+
+test('HK$600 shared equally, Mrs pays all: Mr owes Mrs HK$300', () => {
+  const r = calculateSettlement([shared(600,'Mrs Meow',300,300)]);
+  assert.equal(r.householdExpense,600); assert.equal(r.outstanding,300);
+  assert.equal(r.debtor,'Mr Meow'); assert.equal(r.creditor,'Mrs Meow');
+});
+test('partial repayment of HK$100 leaves HK$200 outstanding', () => {
+  const r = calculateSettlement([shared(600,'Mrs Meow',300,300)],[{from:'Mr Meow',to:'Mrs Meow',amount:100}]);
+  assert.equal(r.outstanding,200); assert.equal(r.totalRepaid,100);
+});
+test('personal expense: Mrs advances HK$800 for Mr, Mr owes Mrs HK$800', () => {
+  const tx={type:'expense',group:'Mr Meow',amount:800,payer:'Mrs Meow',shares:{'Mrs Meow':0,'Mr Meow':800}};
+  const r=calculateSettlement([tx]); assert.equal(r.outstanding,800);
+  assert.equal(r.debtor,'Mr Meow'); assert.equal(r.creditor,'Mrs Meow');
+});
+test('shared expenses paid by each person according to their shares net to zero', () => {
+  const r=calculateSettlement([shared(600,'Mrs Meow',300,300),shared(600,'Mr Meow',300,300)]);
+  assert.equal(r.outstanding,0); assert.equal(r.householdExpense,1200);
+});
+test('custom split respects shares and identifies who owes whom', () => {
+  const r=calculateSettlement([shared(600,'Mr Meow',400,200)]);
+  assert.equal(r.outstanding,200); assert.equal(r.debtor,'Mrs Meow'); assert.equal(r.creditor,'Mr Meow');
+});
+test('rejects shares that do not add up to the transaction total', () => {
+  assert.throws(() => calculateSettlement([shared(600,'Mrs Meow',300,200)]), /add up/);
+});
+test('legacy records without explicit shares are not silently reinterpreted', () => {
+  const r=calculateSettlement([{type:'expense',group:'共同',amount:600,payer:'Mrs Meow'}]);
+  assert.equal(r.householdExpense,0); assert.equal(r.outstanding,0);
+});
