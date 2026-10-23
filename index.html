@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8">ƒ
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2C6E49">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -172,7 +172,16 @@ let S=load();
    只可使用 anon/publishable key；絕不可放 service_role key。 */
 const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'};
 let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null;
-const cloudReady=()=>!!(window.supabase&&CLOUD_CONFIG.url.startsWith('https://ennrsqbxvrwmdizdnzg.supabase.co')&&CLOUD_CONFIG.anonKey!=='sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'&&CLOUD_CONFIG.anonKey.length>20);
+
+
+const cloudReady = () => !!(
+  window.supabase &&
+  /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(CLOUD_CONFIG.url) &&
+  typeof CLOUD_CONFIG.anonKey === 'string' &&
+  CLOUD_CONFIG.anonKey.length > 20
+);
+
+
 function setCloudStatus(msg,ok=true){$('cloud-status').classList.remove('hidden');$('cloud-status-text').textContent=(ok?'☁️ ':'⚠️ ')+msg}
 function authMessage(msg,ok=false){const el=$('auth-message');el.textContent=msg;el.className='text-xs rounded-xl p-3 '+(ok?'bg-emerald-50 text-emerald-800':'bg-red-50 text-red-700')}
 function showAuth(){ $('auth-gate').classList.remove('hidden');$('cloud-status').classList.add('hidden');if(!cloudReady())$('auth-config-warning').classList.remove('hidden')}
