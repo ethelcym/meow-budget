@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2C6E49">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>喵喵記帳</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{brand:{50:'#F2F7F4',100:'#E1EDE6',200:'#C3DCCD',600:'#2C6E49',700:'#235338',800:'#1C3F2B'}}}}}
+</script>
+<style>
+:root{color-scheme:light;box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{padding-top:env(safe-area-inset-top,0px);background:#FAF8F5;color:#2D3748;font-family:system-ui,-apple-system,"Noto Sans HK",sans-serif}
+*,*:before,*:after{box-sizing:inherit}
+.hs::-webkit-scrollbar{display:none}.hs{scrollbar-width:none}
+#toast{transition:all .25s;transform:translate(-50%,-150%);opacity:0}
+#toast.on{transform:translate(-50%,0);opacity:1}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #2C6E49;outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div id="auth-gate" class="fixed inset-0 z-[100] bg-brand-800/95 p-4 flex items-center justify-center">
+  <div class="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl space-y-4">
+    <div class="text-center"><div class="text-4xl">🐱💚</div><h1 class="text-xl font-extrabold mt-2">喵喵記帳・雲端版</h1><p class="text-xs text-slate-500 mt-1">雙人登入・共同同步</p></div>
+    <div id="auth-config-warning" class="hidden text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3">尚未設定 Supabase。請先按下載套件內 README 完成設定，再使用雲端登入。</div>
+    <div id="auth-message" role="status" aria-live="polite" class="hidden text-xs rounded-xl p-3"></div>
+    <label class="block text-xs font-semibold text-slate-500">電郵地址</label>
+    <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <label class="block text-xs font-semibold text-slate-500">密碼（至少 8 位）</label>
+    <input id="auth-password" type="password" autocomplete="current-password" placeholder="輸入密碼" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <button id="auth-login" type="button" onclick="authAction('login')" class="w-full bg-brand-600 text-white font-bold py-3 rounded-xl">登入</button>
+    <button id="auth-signup" type="button" onclick="authAction('signup')" class="w-full bg-brand-50 text-brand-700 border border-brand-200 font-bold py-3 rounded-xl">建立新帳戶</button>
+    <div class="border-t pt-3 space-y-2">
+      <p class="text-xs font-bold text-slate-700">雙人共用帳本</p>
+      <p class="text-[11px] text-slate-500">第一位登入者建立帳本並分享邀請碼；第二位登入後輸入邀請碼加入。</p>
+      <input id="household-code" autocomplete="off" placeholder="另一位使用者的邀請碼" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm">
+      <button type="button" onclick="joinHousehold()" class="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl text-sm">使用邀請碼加入帳本</button>
+      <button type="button" onclick="createHousehold()" class="w-full text-brand-700 font-bold py-2.5 rounded-xl text-sm border border-brand-200">建立新共用帳本</button>
+    </div>
+    <p class="text-[10px] leading-4 text-slate-400">雲端版需要你自行建立 Supabase 專案並設定資料庫。登入資料由 Supabase Auth 管理；請勿把 service_role key 放入此頁面。</p>
+  </div>
+</div>
+
+<div class="w-full max-w-md mx-auto bg-white h-full flex flex-col border-x border-slate-100 relative">
+  <div id="toast" class="fixed top-4 left-1/2 z-50 w-11/12 max-w-sm pointer-events-none"><div id="toast-msg" role="status" aria-live="polite" class="bg-slate-900 text-white text-sm px-4 py-3 rounded-2xl shadow-xl"></div></div>
+  <div id="cloud-status" class="hidden bg-brand-50 border-b border-brand-100 px-4 py-2 flex items-center justify-between gap-2 text-[11px]">
+    <span id="cloud-status-text" class="text-brand-800 truncate">☁️ 正在連接雲端…</span>
+    <button type="button" onclick="signOutCloud()" class="shrink-0 font-bold text-brand-700 underline">登出</button>
+  </div>
+  <div id="banner" class="hidden bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex justify-between"><span id="banner-t" class="truncate"></span><button type="button" onclick="$('banner').classList.add('hidden')" class="ml-2 font-bold" aria-label="關閉提示">✕</button></div>
+  <div id="monthbar" class="hidden px-4 pt-3 flex items-center justify-between">
+    <button type="button" onclick="shiftMonth(-1)" aria-label="上一個月" class="w-9 h-9 rounded-xl bg-slate-100 font-bold">‹</button>
+    <div class="text-center"><div id="month-label" class="font-bold text-slate-800"></div><button type="button" onclick="U.month=ld().slice(0,7);render()" class="text-[11px] text-brand-600">回到本月</button></div>
+    <button type="button" onclick="shiftMonth(1)" aria-label="下一個月" class="w-9 h-9 rounded-xl bg-slate-100 font-bold">›</button>
+  </div>
+  <main class="flex-1 overflow-y-auto hs">
+    <section id="view-add" class="p-4 space-y-3">
+      <div id="add-warn" class="space-y-2"></div>
+      <div id="type-seg" class="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl"></div>
+      <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100 space-y-3">
+        <div id="edit-note" class="hidden text-xs bg-amber-50 text-amber-800 rounded-xl p-2 flex justify-between"><span>✏️ 編輯中</span><button type="button" onclick="cancelEdit()" class="font-bold underline">取消</button></div>
+        <div><label class="text-xs font-semibold text-slate-500">帳目歸屬</label><div id="group-seg" class="grid grid-cols-3 gap-2 mt-1"></div></div>
+        <div id="payer-box" class="hidden"><label class="text-xs font-semibold text-slate-500">💳 邊個俾錢（用嚟結算）</label><div id="payer-seg" class="grid grid-cols-2 gap-2 mt-1"></div></div>
+        <div><label for="tx-amount" class="text-xs font-semibold text-slate-500">金額 ($)</label><input type="number" inputmode="decimal" min="0.01" step="0.1" id="tx-amount" placeholder="0.00" class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-2xl font-bold focus:outline-none focus:border-brand-600"></div>
+        <div><label class="text-xs font-semibold text-slate-500">主分類</label><div id="cat-chips" class="grid grid-cols-3 gap-2 mt-1 max-h-48 overflow-y-auto hs p-1"></div></div>
+        <div id="sub-box" class="hidden bg-brand-50/40 p-3 rounded-2xl border border-brand-100 space-y-2"><div class="text-xs font-bold text-brand-800">🔀 想再細分嗎？</div><div id="sub-chips" class="flex flex-wrap gap-2"></div></div>
+        <div><label for="tx-date" class="text-xs font-semibold text-slate-500">日期</label><input type="date" id="tx-date" onchange="renderAlerts()" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm"></div>
+        <div><label for="tx-note" class="text-xs font-semibold text-slate-500">備註/商戶</label><input type="text" id="tx-note" maxlength="200" placeholder="例如: 日式拉麵" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm"></div>
+        <button type="button" id="submit-btn" onclick="submitTx()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-2xl shadow-lg active:scale-[.99]">✓ 確定記帳</button>
+      </div>
+    </section>
+
+    <section id="view-budget" class="hidden p-4 space-y-3">
+      <div id="bg-seg" class="flex gap-1 bg-slate-200/70 p-1 rounded-2xl"></div>
+      <div class="bg-gradient-to-br from-brand-700 to-brand-800 text-white p-4 rounded-3xl space-y-2">
+        <div class="flex justify-between text-xs opacity-90"><span>月預算總覽</span><span id="bg-badge" class="px-2 py-0.5 rounded-full font-bold bg-white/20"></span></div>
+        <div id="bg-amt" class="text-2xl font-extrabold"></div>
+        <div class="w-full bg-black/20 h-2.5 rounded-full overflow-hidden"><div id="bg-bar" class="h-full rounded-full bg-emerald-400" style="width:0"></div></div>
+      </div>
+      <div class="text-xs text-slate-400 flex justify-between"><b class="text-sm text-slate-700">各分類預算</b><span>改完數字撳其他位置儲存</span></div>
+      <div id="bg-list" class="space-y-2.5"></div>
+    </section>
+
+    <section id="view-records" class="hidden p-4 space-y-3">
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <select id="f-group" onchange="U.limit=50;renderRecords()" aria-label="篩選組別" class="bg-slate-100 rounded-xl px-2 py-2 font-medium"><option value="ALL">全部組別</option><option>共同</option><option>Mrs Meow</option><option>Mr Meow</option></select>
+        <select id="f-type" onchange="U.limit=50;renderRecords()" aria-label="篩選類型" class="bg-slate-100 rounded-xl px-2 py-2 font-medium"><option value="ALL">全部類型</option><option value="expense">支出</option><option value="income">收入</option></select>
+      </div>
+      <input id="f-q" oninput="U.limit=50;renderRecords()" aria-label="搜尋紀錄" placeholder="🔍 搜尋備註／分類" class="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs">
+      <div id="rec-list" class="space-y-2"></div>
+    </section>
+
+    <section id="view-reports" class="hidden p-4 space-y-3">
+      <div id="rp-seg" class="flex gap-1 bg-slate-200/70 p-1 rounded-2xl"></div>
+      <div class="grid grid-cols-3 gap-2 text-center" id="rp-sum"></div>
+      <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm border-b pb-2">📊 支出分類彙總</div><div id="rp-break" class="space-y-2"></div></div>
+      <div class="bg-slate-900 text-white p-4 rounded-3xl space-y-2"><div class="text-sm font-bold text-amber-400">⚖️ 「共同」拆帳結算（50/50）</div><div id="settle" class="text-xs space-y-1.5 bg-slate-800 p-3 rounded-2xl"></div></div>
+    </section>
+
+    <section id="view-settings" class="hidden p-4 space-y-3">
+      <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2">
+        <div class="font-bold text-sm">📁 新增分類 / 子分類</div>
+        <select id="nc-type" onchange="renderSettings()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs"><option value="expense">支出</option><option value="income">收入</option></select>
+        <select id="nc-parent" aria-label="選擇主分類" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs"></select>
+        <input id="nc-name" maxlength="50" placeholder="分類名稱" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs">
+        <button type="button" onclick="addCat()" class="w-full bg-brand-600 text-white font-bold py-2.5 rounded-xl text-xs">＋ 新增</button>
+      </div>
+      <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm">現有分類架構</div><p class="text-[11px] text-slate-400">有交易嘅分類唔會刪除，會「封存」（唔再顯示喺記帳選項，舊紀錄保留）。</p><div id="cat-tree" class="space-y-2"></div></div>
+      <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm">💾 備份 / 匯入 / 匯出</div>
+        <p class="text-[11px] text-slate-500">資料暫存喺呢部裝置嘅瀏覽器；清除網站資料或換裝置前，請先備份。</p>
+        <textarea id="bk" rows="5" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-[11px] font-mono" placeholder="備份內容會顯示喺度，複製後自行保存；要匯入就貼上 JSON 再撳匯入"></textarea>
+        <div class="grid grid-cols-3 gap-2 text-xs font-bold"><button type="button" onclick="showBackup()" class="py-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">備份 JSON</button><button type="button" onclick="showCSV()" class="py-2 rounded-xl bg-brand-50 text-brand-700 border border-brand-200">CSV</button><button type="button" onclick="importBackup()" class="py-2 rounded-xl bg-slate-800 text-white">匯入</button></div>
+      </div>
+      <button type="button" onclick="resetAll()" class="w-full py-2.5 bg-red-50 text-red-600 font-bold text-xs rounded-xl border border-red-200">↺ 重置範例數據</button>
+    </section>
+  </main>
+  <nav id="nav" aria-label="主選單" class="shrink-0 bg-white border-t border-slate-200 py-2 px-3 grid grid-cols-5 text-center" style="padding-bottom:calc(.5rem + env(safe-area-inset-bottom,0px))"></nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const K='meow_v3';
+const $=id=>document.getElementById(id);
+const G=['共同','Mrs Meow','Mr Meow'],P=['Mrs Meow','Mr Meow'];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const ld=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const money=n=>'$'+(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+const TABS=[['add','✏️','記帳'],['budget','👛','預算'],['records','📋','記錄'],['reports','📊','報告'],['settings','⚙️','設定']];
+
+function defaults(){
+ const m=ld().slice(0,7),c=(id,name,type,icon,parentId=null)=>({id,name,type,icon,parentId});
+ return {version:1,cats:[
+ c('c1','餐飲','expense','🍜'),c('c1_1','出街食','expense','🍔','c1'),c('c1_2','買餸煮飯','expense','🧺','c1'),
+ c('c2','交通','expense','🚌'),c('c2_1','巴士/地鐵','expense','🚇','c2'),c('c2_2','的士/網約車','expense','🚕','c2'),
+ c('c3','購物','expense','🛍️'),c('c3_1','服飾鞋履','expense','👕','c3'),c('c3_2','日用品','expense','📦','c3'),
+ c('c4','居住租金','expense','🏠'),c('c5','娛樂休閒','expense','🎮'),c('c6','醫療健康','expense','🩺'),
+ c('inc1','薪金','income','💵'),c('inc2','租金收入','income','🏢'),c('inc3','銀行利息','income','🏦'),c('inc4','股票分紅','income','📈'),c('inc5','兼職副業','income','💼')],
+ budgets:{'共同':{c1:3500,c2:1200,c3:2000,c4:10000,c5:1500,c6:1000},'Mrs Meow':{c1:2000,c2:800,c3:3000,c5:1000},'Mr Meow':{c1:2500,c2:1000,c3:1500,c5:1200}},
+ tx:[
+ {id:'t1',type:'expense',group:'共同',payer:'Mrs Meow',amount:150,categoryId:'c1',subCategoryId:'c1_1',date:m+'-02',note:'日式拉麵'},
+ {id:'t2',type:'expense',group:'共同',payer:'Mr Meow',amount:246,categoryId:'c1',subCategoryId:null,date:m+'-03',note:'超市買肉食'},
+ {id:'t3',type:'expense',group:'共同',payer:'Mrs Meow',amount:2800,categoryId:'c1',subCategoryId:'c1_1',date:m+'-05',note:'週年紀念西餐'},
+ {id:'t4',type:'expense',group:'Mrs Meow',payer:null,amount:450,categoryId:'c3',subCategoryId:'c3_1',date:m+'-06',note:'秋季外套'},
+ {id:'t5',type:'expense',group:'Mr Meow',payer:null,amount:950,categoryId:'c2',subCategoryId:'c2_2',date:m+'-07',note:'長途的士'},
+ {id:'t6',type:'income',group:'Mrs Meow',payer:null,amount:32000,categoryId:'inc1',subCategoryId:null,date:m+'-01',note:'薪金'},
+ {id:'t7',type:'income',group:'Mr Meow',payer:null,amount:35000,categoryId:'inc1',subCategoryId:null,date:m+'-01',note:'薪金'}]};
+}
+function normalizeState(s){
+ if(!s||!Array.isArray(s.cats)||!Array.isArray(s.tx)||!s.budgets||typeof s.budgets!=='object')throw new Error('備份資料結構不正確');
+ const catIds=new Set();
+ s.cats.forEach(c=>{if(!c||typeof c.id!=='string'||typeof c.name!=='string'||!['expense','income'].includes(c.type))throw new Error('分類資料不完整');if(catIds.has(c.id))throw new Error('分類 ID 重複');catIds.add(c.id)});
+ const txIds=new Set();
+ s.tx.forEach(t=>{if(!t||typeof t.id!=='string'||txIds.has(t.id)||!['expense','income'].includes(t.type)||!G.includes(t.group)||!Number.isFinite(Number(t.amount))||Number(t.amount)<=0||typeof t.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||!catIds.has(t.categoryId))throw new Error('交易資料不完整');txIds.add(t.id);if(t.subCategoryId&&!catIds.has(t.subCategoryId))t.subCategoryId=null;if(t.type!=='expense'||t.group!=='共同')t.payer=null;else if(!P.includes(t.payer))t.payer=null;t.amount=Number(t.amount);t.note=String(t.note||'')});
+ s.cats.forEach(c=>{if(c.parentId&&!catIds.has(c.parentId))c.parentId=null});
+ G.forEach(g=>{if(!s.budgets[g]||typeof s.budgets[g]!=='object')s.budgets[g]={}});
+ return s;
+}
+function load(){try{const raw=localStorage.getItem(K);if(raw)return normalizeState(JSON.parse(raw))}catch(e){console.warn('讀取本機資料失敗：',e)}return defaults()}
+let S=load();
+
+/* 雲端設定：請在此填入 Supabase Project URL 及 anon/publishable key。
+   只可使用 anon/publishable key；絕不可放 service_role key。 */
+const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-vend'};
+let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null;
+const cloudReady=()=>!!(window.supabase&&CLOUD_CONFIG.url.startsWith('https://')&&CLOUD_CONFIG.anonKey!=='YOUR_SUPABASE_ANON_KEY'&&CLOUD_CONFIG.anonKey.length>20);
+function setCloudStatus(msg,ok=true){$('cloud-status').classList.remove('hidden');$('cloud-status-text').textContent=(ok?'☁️ ':'⚠️ ')+msg}
+function authMessage(msg,ok=false){const el=$('auth-message');el.textContent=msg;el.className='text-xs rounded-xl p-3 '+(ok?'bg-emerald-50 text-emerald-800':'bg-red-50 text-red-700')}
+function showAuth(){ $('auth-gate').classList.remove('hidden');$('cloud-status').classList.add('hidden');if(!cloudReady())$('auth-config-warning').classList.remove('hidden')}
+function hideAuth(){ $('auth-gate').classList.add('hidden');$('cloud-status').classList.remove('hidden')}
+function initCloud(){
+ if(!cloudReady()){showAuth();return}
+ cloudClient=window.supabase.createClient(CLOUD_CONFIG.url,CLOUD_CONFIG.anonKey);
+ cloudClient.auth.getSession().then(({data,error})=>{if(error)throw error;if(data.session)onSignedIn(data.session.user);else showAuth()}).catch(e=>{showAuth();authMessage('連接失敗：'+e.message)});
+ cloudClient.auth.onAuthStateChange((event,session)=>{if(session&&(!cloudUser||cloudUser.id!==session.user.id))setTimeout(()=>onSignedIn(session.user),0);else if(!session){cloudUser=null;householdId=null;showAuth()}});
+}
+async function authAction(action){
+ if(!cloudReady())return authMessage('請先在 HTML 設定 CLOUD_CONFIG，並按 README 完成 Supabase 資料庫設定。');
+ const email=$('auth-email').value.trim(),password=$('auth-password').value;
+ if(!email||!password)return authMessage('請輸入電郵地址及密碼。');
+ if(password.length<8)return authMessage('密碼至少需要 8 位。');
+ let result;
+ if(action==='signup')result=await cloudClient.auth.signUp({email,password});
+ else result=await cloudClient.auth.signInWithPassword({email,password});
+ if(result.error)return authMessage(result.error.message);
+ if(action==='signup'&&!result.data.session){authMessage('帳戶已建立。請先按電郵內的確認連結，再返回登入。',true);return}
+ if(result.data.session)await onSignedIn(result.data.user);
+}
+async function onSignedIn(user){
+ cloudUser=user;hideAuth();setCloudStatus('已登入 '+user.email+'，正在尋找共用帳本…');
+ try{
+  const {data:members,error}=await cloudClient.from('household_members').select('household_id').eq('user_id',user.id).limit(1);
+  if(error)throw error;
+  if(!members||!members.length){setCloudStatus('已登入；請建立帳本或輸入邀請碼加入',false);$('auth-gate').classList.remove('hidden');return}
+  householdId=members[0].household_id;
+  await pullCloudState();
+  subscribeCloud();
+  setCloudStatus('雲端已同步 · '+user.email);
+  render();
+ }catch(e){setCloudStatus('同步失敗：'+e.message,false);toast('雲端同步失敗，請檢查設定及網絡',true)}
+}
+async function createHousehold(){
+ if(!cloudClient||!cloudUser)return authMessage('請先登入。');
+ try{
+  const {data,error}=await cloudClient.rpc('create_household');
+  if(error)throw error;
+  householdId=data;
+  const {error:stateError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
+  if(stateError)throw stateError;
+  hideAuth();subscribeCloud();setCloudStatus('已建立共用帳本；請把邀請碼分享給另一位使用者');
+  const {data:hh,error:hhErr}=await cloudClient.from('households').select('invite_code').eq('id',householdId).single();
+  if(hhErr)throw hhErr;
+  alert('共用帳本已建立！邀請碼：'+hh.invite_code+'\\n請把此碼安全地交給另一位使用者。');
+  render();
+ }catch(e){authMessage('建立帳本失敗：'+e.message)}
+}
+async function joinHousehold(){
+ if(!cloudClient||!cloudUser)return authMessage('請先登入。');
+ const code=$('household-code').value.trim();if(!code)return authMessage('請輸入邀請碼。');
+ try{
+  const {data,error}=await cloudClient.rpc('join_household',{p_invite_code:code});
+  if(error)throw error;householdId=data;
+  const {data:remote,error:readError}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
+  if(readError)throw readError;
+  if(remote&&remote.state){S=normalizeState(remote.state);localStorage.setItem(K,JSON.stringify(S))}
+  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
+  hideAuth();subscribeCloud();setCloudStatus('已加入共用帳本並同步');render();
+ }catch(e){authMessage('加入失敗：'+e.message)}
+}
+async function pullCloudState(){
+ const {data,error}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
+ if(error)throw error;
+ if(data&&data.state){S=normalizeState(data.state);localStorage.setItem(K,JSON.stringify(S))}
+ else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
+}
+function scheduleCloudSave(){
+ if(!cloudClient||!cloudUser||!householdId)return;
+ clearTimeout(cloudTimer);cloudTimer=setTimeout(async()=>{
+  if(cloudBusy)return;
+  cloudBusy=true;
+  try{
+   const {error}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
+   if(error)throw error;
+   setCloudStatus('雲端已同步 · '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){setCloudStatus('雲端同步失敗；本機仍有暫存。請勿清除網站資料。',false);console.error(e)}
+  finally{cloudBusy=false}
+ },700);
+}
+function subscribeCloud(){
+ if(!cloudClient||!householdId)return;
+ if(cloudChannel)cloudClient.removeChannel(cloudChannel);
+ cloudChannel=cloudClient.channel('household-state-'+householdId).on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_state',filter:'household_id=eq.'+householdId},async payload=>{
+  if(payload.new&&payload.new.updated_by!==cloudUser?.id&&payload.new.state){
+   try{S=normalizeState(payload.new.state);localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
+   catch(e){console.error('雲端資料格式不正確',e)}
+  }
+ }).subscribe();
+}
+async function signOutCloud(){
+ if(!cloudClient)return;
+ if(!confirm('確定登出？未同步資料請先確認已備份。'))return;
+ if(cloudChannel)await cloudClient.removeChannel(cloudChannel);
+ await cloudClient.auth.signOut();cloudUser=null;householdId=null;showAuth();
+}
+function save(){
+ try{localStorage.setItem(K,JSON.stringify(S));scheduleCloudSave();return true}
+ catch(e){toast('儲存失敗：瀏覽器儲存空間可能不足，請先匯出備份',true);return false}
+}
+const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',cat:null,sub:null,editId:null,bGroup:'共同',rGroup:'合計',month:ld().slice(0,7),limit:50};
+const cat=id=>S.cats.find(c=>c.id===id);
+const mains=(type,all=false)=>S.cats.filter(c=>c.type===type&&!c.parentId&&(all||!c.archived));
+const subs=id=>S.cats.filter(c=>c.parentId===id&&!c.archived);
+const sum=a=>a.reduce((s,t)=>s+(Number(t.amount)||0),0);
+const spent=(g,cid,m)=>sum(S.tx.filter(t=>t.type==='expense'&&t.group===g&&t.categoryId===cid&&t.date.startsWith(m)));
+const seg=(items,act,fn)=>items.map(i=>`<button type="button" onclick="${fn}('${esc(i)}')" class="flex-1 py-2 rounded-xl text-xs font-bold ${i===act?'bg-white text-brand-700 shadow-sm':'text-slate-600'}">${esc(i)}</button>`).join('');
+const catPath=t=>{const m=cat(t.categoryId)||{name:'未知分類'},s=cat(t.subCategoryId);return s?`${m.name} > ${s.name}`:m.name};
+let tt;
+function toast(msg,warn=false){$('toast-msg').textContent=(warn?'⚠️ ':'✅ ')+msg;$('toast').classList.add('on');clearTimeout(tt);tt=setTimeout(()=>$('toast').classList.remove('on'),3500)}
+function switchTab(t){U.tab=t;U.limit=50;render()}
+function shiftMonth(d){let[y,m]=U.month.split('-').map(Number);m+=d;if(m<1){m=12;y--}if(m>12){m=1;y++}U.month=`${y}-${pad(m)}`;render()}
+function render(){
+ TABS.forEach(([k])=> $('view-'+k).classList.toggle('hidden',k!==U.tab));
+ $('nav').innerHTML=TABS.map(([k,i,n])=>`<button type="button" onclick="switchTab('${k}')" aria-current="${k===U.tab?'page':'false'}" class="flex flex-col items-center py-1 ${k===U.tab?'text-brand-600 font-bold':'text-slate-400'}"><span class="text-lg">${i}</span><span class="text-[10px]">${n}</span></button>`).join('');
+ $('monthbar').classList.toggle('hidden',!['budget','records','reports'].includes(U.tab));
+ const[y,m]=U.month.split('-');$('month-label').textContent=`${y}年${+m}月`;
+ ({add:renderAdd,budget:renderBudget,records:renderRecords,reports:renderReports,settings:renderSettings})[U.tab]();
+}
+function renderAdd(){
+ $('type-seg').innerHTML=[['expense','⬇️ 支出'],['income','⬆️ 收入']].map(([k,n])=>`<button type="button" onclick="setType('${k}')" class="py-2.5 rounded-xl font-bold text-sm ${U.type===k?'bg-white text-brand-700 shadow-sm':'text-slate-500'}">${n}</button>`).join('');
+ $('group-seg').innerHTML=G.map(g=>`<button type="button" onclick="setGroup('${g}')" class="py-2 text-xs font-bold rounded-xl border ${g===U.group?'border-brand-600 bg-brand-50 text-brand-700':'border-slate-200 bg-white text-slate-600'}">${g}</button>`).join('');
+ const showP=U.type==='expense'&&U.group==='共同';$('payer-box').classList.toggle('hidden',!showP);
+ $('payer-seg').innerHTML=P.map(p=>`<button type="button" onclick="U.payer='${p}';renderAdd()" class="py-2 text-xs font-bold rounded-xl border ${p===U.payer?'border-amber-500 bg-amber-50 text-amber-800':'border-slate-200 bg-white text-slate-600'}">${p} 俾</button>`).join('');
+ const ms=mains(U.type);if(!ms.some(c=>c.id===U.cat))U.cat=ms[0]?.id||null;
+ $('cat-chips').innerHTML=ms.map(c=>`<button type="button" onclick="U.cat='${esc(c.id)}';U.sub=null;renderAdd()" class="py-2.5 px-1 rounded-2xl text-xs font-bold flex flex-col items-center gap-1 border ${c.id===U.cat?'bg-brand-600 text-white border-brand-600 shadow-md':'bg-white text-slate-700 border-slate-200'}"><span>${esc(c.icon||'🏷️')}</span><span class="truncate w-full text-center">${esc(c.name)}</span></button>`).join('')||'<div class="col-span-3 text-xs text-slate-400 py-3">未有分類，請先到「設定」新增。</div>';
+ const ss=U.cat?subs(U.cat):[];if(U.sub&&!ss.some(s=>s.id===U.sub))U.sub=null;
+ $('sub-box').classList.toggle('hidden',!ss.length);
+ $('sub-chips').innerHTML=`<button type="button" onclick="U.sub=null;renderAdd()" class="py-1.5 px-3 rounded-xl text-xs font-bold border ${!U.sub?'bg-slate-800 text-white':'bg-white text-slate-600 border-slate-200'}">唔使細分</button>`+ss.map(s=>`<button type="button" onclick="U.sub='${esc(s.id)}';renderAdd()" class="py-1.5 px-3 rounded-xl text-xs font-bold border ${U.sub===s.id?'bg-brand-600 text-white border-brand-600':'bg-white text-brand-700 border-brand-200'}">${esc(s.icon||'')} ${esc(s.name)}</button>`).join('');
+ if(!$('tx-date').value)$('tx-date').value=ld();
+ $('edit-note').classList.toggle('hidden',!U.editId);$('submit-btn').textContent=U.editId?'✓ 更新記帳':'✓ 確定記帳';renderAlerts();
+}
+function setType(t){U.type=t;U.cat=null;U.sub=null;renderAdd()}
+function setGroup(g){U.group=g;renderAdd()}
+function alertsFor(g,m){const out=[];mains('expense',true).forEach(c=>{const lim=Number((S.budgets[g]||{})[c.id])||0;if(lim>0){const s=spent(g,c.id,m),r=s/lim;if(r>=.8)out.push({g,name:c.name,s,lim,danger:r>=1,r})}});return out}
+function renderAlerts(){
+ const m=($('tx-date').value||ld()).slice(0,7),w=alertsFor(U.group,m);
+ $('add-warn').innerHTML=w.map(x=>`<div class="p-2.5 rounded-2xl text-xs border ${x.danger?'bg-red-50 text-red-700 border-red-200':'bg-amber-50 text-amber-800 border-amber-200'}"><b>${esc(x.g)} • ${esc(x.name)}</b>：${x.danger?'超出預算！':'已用達80%'}（${m}　${money(x.s)} / ${money(x.lim)}）</div>`).join('');
+ $('banner').classList.toggle('hidden',!w.length);
+ if(w.length)$('banner-t').textContent=`【${w[0].g} - ${w[0].name}】${w[0].danger?'已爆預算':'預算達 '+Math.round(w[0].r*100)+'%'}`;
+}
+function resetForm(){U.editId=null;U.sub=null;$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
+function cancelEdit(){resetForm();renderAdd()}
+function submitTx(){
+ const amount=Number($('tx-amount').value),date=$('tx-date').value||ld(),note=$('tx-note').value.trim();
+ if(!Number.isFinite(amount)||amount<=0)return toast('請輸入大於 0 嘅有效金額！',true);
+ if(!U.cat||!cat(U.cat)||cat(U.cat).archived)return toast('請選擇有效分類！',true);
+ if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return toast('請選擇有效日期！',true);
+ if(U.sub&&(!cat(U.sub)||cat(U.sub).parentId!==U.cat||cat(U.sub).archived))U.sub=null;
+ const tx={id:U.editId||uid(),type:U.type,group:U.group,payer:(U.type==='expense'&&U.group==='共同')?U.payer:null,amount,categoryId:U.cat,subCategoryId:U.sub,date,note};
+ const wasEdit=!!U.editId;
+ if(wasEdit)S.tx=S.tx.map(t=>t.id===U.editId?tx:t);else S.tx.unshift(tx);
+ if(!save())return;
+ const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
+ let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
+ if(tx.type==='expense'){const m=date.slice(0,7),lim=Number((S.budgets[tx.group]||{})[main.id])||0;if(lim>0){const s=spent(tx.group,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true}else if(s/lim>=.8){message=`已記帳！【${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}
+ toast(message,warn);resetForm();renderAdd();
+}
+function renderBudget(){
+ $('bg-seg').innerHTML=seg(G,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
+ $('bg-list').innerHTML=mains('expense',true).map(c=>{const lim=Number(gb[c.id])||0,s=spent(U.bGroup,c.id,U.month);if(c.archived&&!lim&&!s)return'';tb+=lim;ts+=s;const pct=lim>0?Math.round(s/lim*100):0;
+ let badge='',col='bg-emerald-500';if(lim>0){if(pct>=100){badge='<span class="bg-red-100 text-red-700 px-2 rounded-full text-[10px] font-bold">已超額</span>';col='bg-red-500'}else if(pct>=80){badge='<span class="bg-amber-100 text-amber-800 px-2 rounded-full text-[10px] font-bold">預警</span>';col='bg-amber-500'}else badge='<span class="bg-emerald-100 text-emerald-800 px-2 rounded-full text-[10px] font-bold">正常</span>'}
+ return `<div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm space-y-2"><div class="flex items-center justify-between gap-2"><div class="flex items-center gap-2 min-w-0"><div class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">${esc(c.icon||'🏷️')}</div><div class="min-w-0"><div class="text-xs font-bold flex gap-1.5 items-center flex-wrap">${esc(c.name)} ${badge}</div><div class="text-[11px] text-slate-400">已用 ${money(s)}</div></div></div><label class="flex items-center gap-1 shrink-0"><span class="text-xs text-slate-400">$</span><input type="number" min="0" step="0.01" inputmode="decimal" value="${lim}" aria-label="${esc(c.name)}預算" onchange="setBudget('${esc(c.id)}',this.value)" class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right text-xs font-bold"></label></div><div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div class="${col} h-full" style="width:${Math.min(Math.max(pct,0),100)}%"></div></div></div>`;
+ }).join('')||'<div class="text-center text-xs text-slate-400 py-6">暫無分類</div>';
+ const tp=tb>0?Math.round(ts/tb*100):0;$('bg-amt').textContent=`${money(ts)} / ${money(tb)}`;$('bg-badge').textContent=tp+'%';$('bg-bar').style.width=Math.min(Math.max(tp,0),100)+'%';$('bg-bar').className='h-full rounded-full '+(tp>=100?'bg-red-400':tp>=80?'bg-amber-300':'bg-emerald-400');
+}
+function setBG(g){U.bGroup=g;renderBudget()}
+function setBudget(id,v){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){toast('請輸入 0 或以上嘅數字',true);return renderBudget()}S.budgets[U.bGroup]=S.budgets[U.bGroup]||{};S.budgets[U.bGroup][id]=n;if(save()){renderBudget();toast(`已更新【${U.bGroup}】預算`)}}
+function renderRecords(){
+ const fg=$('f-group').value,ft=$('f-type').value,q=$('f-q').value.trim().toLocaleLowerCase();
+ const list=S.tx.filter(t=>t.date.startsWith(U.month)&&(fg==='ALL'||t.group===fg)&&(ft==='ALL'||t.type===ft)&&(!q||(t.note||'').toLocaleLowerCase().includes(q)||catPath(t).toLocaleLowerCase().includes(q)||t.group.toLocaleLowerCase().includes(q)))
+ .sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)));
+ if(!list.length){$('rec-list').innerHTML='<div class="text-center text-xs text-slate-400 py-8">呢個月冇符合條件嘅紀錄</div>';return}
+ const shown=list.slice(0,U.limit);let html='',last='';
+ shown.forEach(t=>{if(t.date!==last){last=t.date;const day=sum(list.filter(x=>x.date===t.date&&x.type==='expense'));html+=`<div class="flex justify-between text-[11px] text-slate-400 pt-2"><span>${esc(t.date)}</span><span>支出 ${money(day)}</span></div>`}
+ const ex=t.type==='expense',mc=cat(t.categoryId)||{};
+ html+=`<div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-2"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${ex?'bg-red-50':'bg-emerald-50'}">${esc(mc.icon||'🧾')}</div><div class="min-w-0"><div class="text-xs font-bold flex gap-1.5 items-center flex-wrap"><span>${esc(catPath(t))}</span><span class="text-[10px] px-1.5 rounded-md ${t.group==='共同'?'bg-brand-50 text-brand-700':'bg-slate-100 text-slate-600'}">${esc(t.group)}</span></div><div class="text-[11px] text-slate-400 truncate">${t.payer?'💳'+esc(t.payer)+' ':''}${esc(t.note)}</div></div></div><div class="flex items-center gap-1.5 shrink-0"><span class="text-sm font-extrabold ${ex?'text-slate-800':'text-emerald-600'}">${ex?'-':'+'}${money(t.amount)}</span><button type="button" onclick="editTx('${esc(t.id)}')" aria-label="編輯紀錄" class="p-1 text-slate-400">✏️</button><button type="button" onclick="delTx('${esc(t.id)}')" aria-label="刪除紀錄" class="p-1 text-slate-400">🗑️</button></div></div>`});
+ if(list.length>shown.length)html+=`<button type="button" onclick="U.limit+=50;renderRecords()" class="w-full py-2 text-xs font-bold text-brand-700 bg-brand-50 rounded-xl">載入更多（尚有 ${list.length-shown.length} 筆）</button>`;
+ $('rec-list').innerHTML=html;
+}
+function editTx(id){const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||'Mrs Meow',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
+function delTx(id){if(!confirm('確定刪除此筆記帳？'))return;S.tx=S.tx.filter(t=>t.id!==id);if(save()){toast('紀錄已刪除');renderRecords()}}
+function setRG(g){U.rGroup=g;renderReports()}
+function renderReports(){
+ $('rp-seg').innerHTML=seg(['合計',...G],U.rGroup,'setRG');
+ const tx=S.tx.filter(t=>t.date.startsWith(U.month)&&(U.rGroup==='合計'||t.group===U.rGroup)),ex=tx.filter(t=>t.type==='expense'),inc=sum(tx.filter(t=>t.type==='income')),tot=sum(ex),bal=inc-tot;
+ $('rp-sum').innerHTML=[['收入',inc,'text-emerald-600'],['支出',tot,'text-red-500'],['結餘',bal,bal<0?'text-red-500':'text-slate-800']].map(([n,v,c])=>`<div class="bg-slate-50 rounded-2xl p-2.5 border border-slate-100"><div class="text-[11px] text-slate-400">${n}</div><div class="font-extrabold text-sm ${c}">${money(v)}</div></div>`).join('');
+ let h='';mains('expense',true).forEach(m=>{const mt=ex.filter(t=>t.categoryId===m.id),mv=sum(mt);if(!mv)return;const rows=S.cats.filter(c=>c.parentId===m.id).map(s=>[s.name,sum(mt.filter(t=>t.subCategoryId===s.id))]);rows.push(['未細分',sum(mt.filter(t=>!t.subCategoryId||!cat(t.subCategoryId)))]);h+=`<div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-100"><div class="flex justify-between text-xs font-bold"><span>${esc(m.icon||'')} ${esc(m.name)} <span class="text-[10px] text-slate-400 font-normal">(${tot?(mv/tot*100).toFixed(1):'0.0'}%)</span></span><span>${money(mv)}</span></div>${rows.filter(r=>r[1]>0).map(r=>`<div class="flex justify-between text-xs text-slate-500 pl-5 py-0.5"><span>• ${esc(r[0])}</span><span>${money(r[1])}</span></div>`).join('')}</div>`});
+ $('rp-break').innerHTML=h||'<div class="text-center text-xs text-slate-400 py-6">本月尚無支出紀錄</div>';
+ const jt=S.tx.filter(t=>t.group==='共同'&&t.type==='expense'&&t.date.startsWith(U.month)),pd=p=>sum(jt.filter(t=>t.payer===p)),un=sum(jt.filter(t=>!P.includes(t.payer))),a=pd(P[0]),b=pd(P[1]),share=(a+b)/2,diff=(a-b)/2;
+ $('settle').innerHTML=`<div class="flex justify-between text-slate-300"><span>${P[0]} 已付</span><b class="text-white">${money(a)}</b></div><div class="flex justify-between text-slate-300"><span>${P[1]} 已付</span><b class="text-white">${money(b)}</b></div><div class="flex justify-between text-slate-300"><span>每人應負擔</span><b class="text-amber-300">${money(share)}</b></div><div class="pt-2 border-t border-slate-700 text-[12px]">${Math.abs(diff)<.005?'✅ 已平帳，無需轉帳':`👉 <b class="text-amber-300">${diff>0?P[1]:P[0]}</b> 需轉 <b class="text-amber-300">${money(Math.abs(diff))}</b> 畀 ${diff>0?P[0]:P[1]}`}</div>${un>0?`<div class="text-[11px] text-slate-500">另有 ${money(un)} 未指定付款人，未計入結算</div>`:''}`;
+}
+function renderSettings(){
+ const t=$('nc-type').value,p=$('nc-parent').value;
+ $('nc-parent').innerHTML='<option value="">最上層 (主分類)</option>'+mains(t).map(c=>`<option value="${esc(c.id)}">${esc(c.name)} 下面 (子分類)</option>`).join('');
+ $('nc-parent').value=p&&mains(t).some(c=>c.id===p)?p:'';
+ const row=(c,sub)=>`<div class="flex items-center justify-between gap-2 ${sub?'text-xs bg-white p-2 rounded-xl border border-slate-100':'text-xs font-bold'}"><span class="min-w-0 ${c.archived?'line-through text-slate-400':''}">${sub?'↳ ':''}${esc(c.name)}${!sub?` <span class="text-[10px] px-1.5 rounded ${c.type==='expense'?'bg-red-100 text-red-600':'bg-emerald-100 text-emerald-600'}">${c.type==='expense'?'支出':'收入'}</span>`:''}${c.archived?' (已封存)':''}</span><span class="shrink-0"><button type="button" onclick="renameCat('${esc(c.id)}')" aria-label="重新命名分類" class="p-1">✏️</button>${c.archived?`<button type="button" onclick="unarchive('${esc(c.id)}')" aria-label="取消封存" class="p-1">↩️</button>`:''}<button type="button" onclick="delCat('${esc(c.id)}')" aria-label="刪除或封存分類" class="p-1">🗑️</button></span></div>`;
+ $('cat-tree').innerHTML=S.cats.filter(c=>!c.parentId).map(m=>`<div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1.5">${row(m,false)}${S.cats.filter(c=>c.parentId===m.id).map(s=>row(s,true)).join('')}</div>`).join('')||'<div class="text-xs text-slate-400 py-3">未有分類</div>';
+}
+function addCat(){
+ const name=$('nc-name').value.trim();if(!name)return toast('請輸入分類名稱',true);
+ const parentId=$('nc-parent').value||null,parent=parentId?cat(parentId):null,type=$('nc-type').value;
+ if(parentId&&(!parent||parent.type!==type||parent.parentId||parent.archived))return toast('請選擇有效主分類',true);
+ if(S.cats.some(c=>c.type===type&&c.parentId===(parentId||null)&&c.name.toLocaleLowerCase()===name.toLocaleLowerCase()&&!c.archived))return toast('同一層已有相同名稱分類',true);
+ S.cats.push({id:uid(),name,type,icon:parentId?'▫️':(type==='expense'?'📁':'💰'),parentId});if(save()){$('nc-name').value='';toast('分類新增成功！');renderSettings()}
+}
+function renameCat(id){const c=cat(id);if(!c)return;const n=prompt('請輸入新分類名稱：',c.name);if(n&&n.trim()){const name=n.trim();if(S.cats.some(x=>x.id!==id&&x.type===c.type&&x.parentId===c.parentId&&x.name.toLocaleLowerCase()===name.toLocaleLowerCase()&&!x.archived))return toast('同一層已有相同名稱分類',true);c.name=name;if(save()){toast('改名成功');renderSettings()}}}
+function unarchive(id){const c=cat(id);if(!c)return;c.archived=false;if(save())renderSettings()}
+function delCat(id){
+ const c=cat(id);if(!c)return;
+ if(S.cats.some(x=>x.parentId===id))return alert('此主分類包含子分類，請先處理所有子分類。');
+ const used=S.tx.some(t=>t.categoryId===id||t.subCategoryId===id);
+ if(used){if(!confirm('已有交易紀錄使用此分類，唔可以刪除。改為「封存」？（舊紀錄保留，唔再顯示喺記帳選項）'))return;c.archived=true;if(save()){toast('已封存');renderSettings()}return}
+ if(!confirm('確定刪除此分類？'))return;S.cats=S.cats.filter(x=>x.id!==id);Object.values(S.budgets).forEach(b=>{if(b)delete b[id]});if(save()){toast('分類已刪除');renderSettings()}
+}
+function showBackup(){$('bk').value=JSON.stringify(S,null,2);$('bk').focus();$('bk').select();toast('備份已生成，請複製並保存')}
+function csvCell(v){let s=String(v??'');if(/^[\s\u0000-\u001f]*[=+\-@]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function showCSV(){
+ const rows=[['日期','類型','組別','付款人','分類層級','金額','備註'],...S.tx.map(t=>[t.date,t.type==='expense'?'支出':'收入',t.group,t.payer||'',catPath(t),t.amount,t.note])];
+ $('bk').value='\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');$('bk').focus();$('bk').select();toast('CSV 已生成，請複製並保存')
+}
+function importBackup(){
+ try{const imported=normalizeState(JSON.parse($('bk').value));if(!confirm('匯入會覆蓋現有所有資料，建議先備份。確定匯入？'))return;const old=S;S=imported;if(!save()){S=old;return}resetForm();U.cat=null;toast('匯入成功');render()}
+ catch(e){toast('匯入失敗：'+(e.message||'JSON 格式不正確'),true)}
+}
+function resetAll(){if(!confirm('確定要重置所有數據並恢復範例數據？此操作不能復原，請先備份。'))return;const old=S;S=defaults();if(!save()){S=old;return}resetForm();U.cat=null;U.type='expense';U.group='共同';U.bGroup='共同';U.rGroup='合計';toast('已恢復範例數據');render()}
+$('tx-date').value=ld();
+render();
+initCloud();
+</script>
+<script>if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker registration failed', err))); }</script>
+</body>
+</html>
