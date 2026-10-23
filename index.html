@@ -301,7 +301,7 @@ function save(){
  try{localStorage.setItem(K,JSON.stringify(S));scheduleCloudSave();return true}
  catch(e){toast('儲存失敗：瀏覽器儲存空間可能不足，請先匯出備份',true);return false}
 }
-const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
+const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,saving:false,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
 const cat=id=>S.cats.find(c=>c.id===id);
 const mains=(type,all=false)=>S.cats.filter(c=>c.type===type&&!c.parentId&&(all||!c.archived));
 const subs=id=>S.cats.filter(c=>c.parentId===id&&!c.archived);
@@ -370,13 +370,15 @@ function submitTx(){
   }else shares={'Mrs Meow':U.group==='Mrs Meow'?amount:0,'Mr Meow':U.group==='Mr Meow'?amount:0};
  }
  const tx={id:U.editId||uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,shares,amount,categoryId:U.cat,subCategoryId:U.sub,date,note};
- const wasEdit=!!U.editId;
+ if(U.saving)return;
+ U.saving=true;
+ const wasEdit=!!U.editId,oldTx=S.tx;
  if(wasEdit)S.tx=S.tx.map(t=>t.id===U.editId?tx:t);else S.tx.unshift(tx);
- if(!save())return;
+ if(!save()){S.tx=oldTx;U.saving=false;return}
  const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
  let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
  if(tx.type==='expense'){const m=date.slice(0,7),targets=tx.group==='共同'?P:[tx.group];for(const g of targets){const lim=Number((S.budgets[g]||{})[main.id])||0;if(lim>0){const s=spent(g,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${g} - ${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true;break}else if(s/lim>=.8){message=`已記帳！【${g} - ${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}}
- toast(message,warn);resetForm();renderAdd();
+ toast(message,warn);if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(12);resetForm();U.saving=false;renderAdd();
 }
 function renderBudget(){
  $('bg-seg').innerHTML=seg(P,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
