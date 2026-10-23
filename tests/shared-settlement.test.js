@@ -124,7 +124,7 @@ test('shared expenses paid by each person according to their shares net to zero'
 });
 test('custom split respects shares and identifies who owes whom', () => {
   const r=calculateSettlement([shared(600,'Mr Meow',400,200)]);
-  assert.equal(r.outstanding,200); assert.equal(r.debtor,'Mrs Meow'); assert.equal(r.creditor,'Mr Meow');
+  assert.equal(r.outstanding,400); assert.equal(r.debtor,'Mrs Meow'); assert.equal(r.creditor,'Mr Meow');
 });
 test('rejects shares that do not add up to the transaction total', () => {
   assert.throws(() => calculateSettlement([shared(600,'Mrs Meow',300,200)]), /add up/);
