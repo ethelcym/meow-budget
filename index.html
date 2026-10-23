@@ -172,7 +172,7 @@ let S=load();
    只可使用 anon/publishable key；絕不可放 service_role key。 */
 const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'};
 let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null;
-const cloudReady=()=>!!(window.supabase&&CLOUD_CONFIG.url.startsWith('https://')&&CLOUD_CONFIG.anonKey!=='YOUR_SUPABASE_ANON_KEY'&&CLOUD_CONFIG.anonKey.length>20);
+const cloudReady=()=>!!(window.supabase&&CLOUD_CONFIG.url.startsWith('https://ennrsqbxvrwmdizdnzg.supabase.co')&&CLOUD_CONFIG.anonKey!=='sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'&&CLOUD_CONFIG.anonKey.length>20);
 function setCloudStatus(msg,ok=true){$('cloud-status').classList.remove('hidden');$('cloud-status-text').textContent=(ok?'☁️ ':'⚠️ ')+msg}
 function authMessage(msg,ok=false){const el=$('auth-message');el.textContent=msg;el.className='text-xs rounded-xl p-3 '+(ok?'bg-emerald-50 text-emerald-800':'bg-red-50 text-red-700')}
 function showAuth(){ $('auth-gate').classList.remove('hidden');$('cloud-status').classList.add('hidden');if(!cloudReady())$('auth-config-warning').classList.remove('hidden')}
