@@ -418,7 +418,7 @@ function submitRepayment(){
  const from=$('repay-from').value,to=$('repay-to').value,amount=Number($('repay-amount').value),date=$('repay-date').value||ld(),note=$('repay-note').value.trim(),st=currentSettlement();
  if(!P.includes(from)||!P.includes(to)||from===to)return toast('請選擇不同的還款人及收款人。',true);
  if(!Number.isFinite(amount)||amount<=0)return toast('請輸入大於 0 的還款金額。',true);
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return toast('請選擇有效還款日期。',true);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return toast('請選擇有效還款日期。',true);
  if(!st.debtor||from!==st.debtor||to!==st.creditor)return toast('還款方向與目前欠款方向不一致。',true);
  if(Math.round(amount*100)>Math.round(st.outstanding*100))return toast('還款金額不可超過目前欠款。',true);
  const old=S.repayments;S.repayments=[...old,{id:uid(),from,to,amount:Math.round(amount*100)/100,date,note}];
