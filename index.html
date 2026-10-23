@@ -168,7 +168,7 @@ function normalizeState(s){
  if(!Array.isArray(s.repayments))s.repayments=[];
  const repaymentIds=new Set();
  s.repayments.forEach(r=>{
-  if(!r||typeof r.id!=='string'||repaymentIds.has(r.id)||!P.includes(r.from)||!P.includes(r.to)||r.from===r.to||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0||typeof r.date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date))throw new Error('還款資料不完整');
+  if(!r||typeof r.id!=='string'||repaymentIds.has(r.id)||!P.includes(r.from)||!P.includes(r.to)||r.from===r.to||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0||typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))throw new Error('還款資料不完整');
   repaymentIds.add(r.id);r.amount=Number(r.amount);r.note=String(r.note||'');
  });
  return s;
