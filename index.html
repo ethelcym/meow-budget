@@ -346,7 +346,7 @@ function setType(t){U.type=t;U.cat=null;U.sub=null;renderAdd()}
 function setGroup(g){U.group=g;if(g==='Mrs Meow')U.payer='Mrs Meow';else if(g==='Mr Meow')U.payer='Mr Meow';U.splitMode='equal';renderAdd()}
 function alertsFor(g,m){const out=[];mains('expense',true).forEach(c=>{const lim=Number((S.budgets[g]||{})[c.id])||0;if(lim>0){const s=spent(g,c.id,m),r=s/lim;if(r>=.8)out.push({g,name:c.name,s,lim,danger:r>=1,r})}});return out}
 function renderAlerts(){
- const m=($('tx-date').value||ld()).slice(0,7),w=alertsFor(U.group,m);
+ const m=($('tx-date').value||ld()).slice(0,7),targets=U.type==='expense'&&U.group==='共同'?P:[U.group],w=targets.flatMap(g=>alertsFor(g,m));
  $('add-warn').innerHTML=w.map(x=>`<div class="p-2.5 rounded-2xl text-xs border ${x.danger?'bg-red-50 text-red-700 border-red-200':'bg-amber-50 text-amber-800 border-amber-200'}"><b>${esc(x.g)} • ${esc(x.name)}</b>：${x.danger?'超出預算！':'已用達80%'}（${m}　${money(x.s)} / ${money(x.lim)}）</div>`).join('');
  $('banner').classList.toggle('hidden',!w.length);
  if(w.length)$('banner-t').textContent=`【${w[0].g} - ${w[0].name}】${w[0].danger?'已爆預算':'預算達 '+Math.round(w[0].r*100)+'%'}`;
@@ -375,7 +375,7 @@ function submitTx(){
  if(!save())return;
  const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
  let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
- if(tx.type==='expense'){const m=date.slice(0,7),lim=Number((S.budgets[tx.group]||{})[main.id])||0;if(lim>0){const s=spent(tx.group,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true}else if(s/lim>=.8){message=`已記帳！【${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}
+ if(tx.type==='expense'){const m=date.slice(0,7),targets=tx.group==='共同'?P:[tx.group];for(const g of targets){const lim=Number((S.budgets[g]||{})[main.id])||0;if(lim>0){const s=spent(g,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${g} - ${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true;break}else if(s/lim>=.8){message=`已記帳！【${g} - ${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}}
  toast(message,warn);resetForm();renderAdd();
 }
 function renderBudget(){
