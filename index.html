@@ -146,6 +146,7 @@ function defaults(){
  c('c4','居住租金','expense','🏠'),c('c5','娛樂休閒','expense','🎮'),c('c6','醫療健康','expense','🩺'),
  c('inc1','薪金','income','💵'),c('inc2','租金收入','income','🏢'),c('inc3','銀行利息','income','🏦'),c('inc4','股票分紅','income','📈'),c('inc5','兼職副業','income','💼')],
  budgets:{'共同':{c1:3500,c2:1200,c3:2000,c4:10000,c5:1500,c6:1000},'Mrs Meow':{c1:2000,c2:800,c3:3000,c5:1000},'Mr Meow':{c1:2500,c2:1000,c3:1500,c5:1200}},
+ repayments:[],
  tx:[
  {id:'t1',type:'expense',group:'共同',payer:'Mrs Meow',amount:150,categoryId:'c1',subCategoryId:'c1_1',date:m+'-02',note:'日式拉麵'},
  {id:'t2',type:'expense',group:'共同',payer:'Mr Meow',amount:246,categoryId:'c1',subCategoryId:null,date:m+'-03',note:'超市買肉食'},
@@ -163,6 +164,13 @@ function normalizeState(s){
  s.tx.forEach(t=>{if(!t||typeof t.id!=='string'||txIds.has(t.id)||!['expense','income'].includes(t.type)||!G.includes(t.group)||!Number.isFinite(Number(t.amount))||Number(t.amount)<=0||typeof t.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||!catIds.has(t.categoryId))throw new Error('交易資料不完整');txIds.add(t.id);if(t.subCategoryId&&!catIds.has(t.subCategoryId))t.subCategoryId=null;if(t.type!=='expense'||t.group!=='共同')t.payer=null;else if(!P.includes(t.payer))t.payer=null;t.amount=Number(t.amount);t.note=String(t.note||'')});
  s.cats.forEach(c=>{if(c.parentId&&!catIds.has(c.parentId))c.parentId=null});
  G.forEach(g=>{if(!s.budgets[g]||typeof s.budgets[g]!=='object')s.budgets[g]={}});
+ // Additive migration: keep existing transactions and household data intact.
+ if(!Array.isArray(s.repayments))s.repayments=[];
+ const repaymentIds=new Set();
+ s.repayments.forEach(r=>{
+  if(!r||typeof r.id!=='string'||repaymentIds.has(r.id)||!P.includes(r.from)||!P.includes(r.to)||r.from===r.to||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0||typeof r.date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date))throw new Error('還款資料不完整');
+  repaymentIds.add(r.id);r.amount=Number(r.amount);r.note=String(r.note||'');
+ });
  return s;
 }
 function load(){try{const raw=localStorage.getItem(K);if(raw)return normalizeState(JSON.parse(raw))}catch(e){console.warn('讀取本機資料失敗：',e)}return defaults()}
