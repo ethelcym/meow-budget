@@ -35,7 +35,8 @@ function amountFromCents(value) {
  */
 function calculateSettlement(transactions, repayments = []) {
   const balance = Object.fromEntries(PEOPLE.map(person => [person, 0]));
-  let householdExpenseCents = 0;
+  let trackedExpenseCents = 0;
+  let sharedExpenseCents = 0;
 
   for (const tx of transactions) {
     if (!tx || tx.type !== 'expense') continue;
@@ -55,7 +56,14 @@ function calculateSettlement(transactions, repayments = []) {
       throw new RangeError('Shares must add up to the expense amount');
     }
 
-    householdExpenseCents += amount;
+    trackedExpenseCents += amount;
+    if (tx.group === '共同') sharedExpenseCents += amount;
+    if (tx.group === 'Mrs Meow' && (shares['Mrs Meow'] !== amount || shares['Mr Meow'] !== 0)) {
+      throw new RangeError('Mrs Meow personal expenses must be assigned fully to Mrs Meow');
+    }
+    if (tx.group === 'Mr Meow' && (shares['Mr Meow'] !== amount || shares['Mrs Meow'] !== 0)) {
+      throw new RangeError('Mr Meow personal expenses must be assigned fully to Mr Meow');
+    }
     for (const person of PEOPLE) balance[person] -= shares[person];
 
     if (PEOPLE.includes(tx.payer)) {
@@ -85,7 +93,11 @@ function calculateSettlement(transactions, repayments = []) {
 
   const difference = balance[PEOPLE[0]];
   return {
-    householdExpense: amountFromCents(householdExpenseCents),
+    // `householdExpense` is retained for compatibility; it means all expenses
+    // represented by this model, not only transactions whose group is 共同.
+    householdExpense: amountFromCents(trackedExpenseCents),
+    trackedExpenseTotal: amountFromCents(trackedExpenseCents),
+    sharedExpense: amountFromCents(sharedExpenseCents),
     totalRepaid: amountFromCents(totalRepaidCents),
     balances: Object.fromEntries(PEOPLE.map(person => [
       person, amountFromCents(balance[person])
@@ -132,4 +144,17 @@ test('rejects shares that do not add up to the transaction total', () => {
 test('legacy records without explicit shares are not silently reinterpreted', () => {
   const r=calculateSettlement([{type:'expense',group:'共同',amount:600,payer:'Mrs Meow'}]);
   assert.equal(r.householdExpense,0); assert.equal(r.outstanding,0);
+});
+
+test('personal expense shares cannot be assigned to the other member', () => {
+  const tx={type:'expense',group:'Mr Meow',amount:800,payer:'Mrs Meow',shares:{'Mrs Meow':400,'Mr Meow':400}};
+  assert.throws(() => calculateSettlement([tx]), /personal expenses must be assigned fully/);
+});
+test('shared expense subtotal is separate from personal advances', () => {
+  const sharedTx=shared(600,'Mrs Meow',300,300);
+  const personalTx={type:'expense',group:'Mr Meow',amount:800,payer:'Mrs Meow',shares:{'Mrs Meow':0,'Mr Meow':800}};
+  const r=calculateSettlement([sharedTx,personalTx]);
+  assert.equal(r.trackedExpenseTotal,1400);
+  assert.equal(r.sharedExpense,600);
+  assert.equal(r.outstanding,1100);
 });
