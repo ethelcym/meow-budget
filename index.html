@@ -301,12 +301,16 @@ function save(){
  try{localStorage.setItem(K,JSON.stringify(S));scheduleCloudSave();return true}
  catch(e){toast('儲存失敗：瀏覽器儲存空間可能不足，請先匯出備份',true);return false}
 }
-const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,cat:null,sub:null,editId:null,bGroup:'共同',rGroup:'合計',month:ld().slice(0,7),limit:50};
+const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
 const cat=id=>S.cats.find(c=>c.id===id);
 const mains=(type,all=false)=>S.cats.filter(c=>c.type===type&&!c.parentId&&(all||!c.archived));
 const subs=id=>S.cats.filter(c=>c.parentId===id&&!c.archived);
 const sum=a=>a.reduce((s,t)=>s+(Number(t.amount)||0),0);
-const spent=(g,cid,m)=>sum(S.tx.filter(t=>t.type==='expense'&&t.group===g&&t.categoryId===cid&&t.date.startsWith(m)));
+const spent=(g,cid,m)=>sum(S.tx.filter(t=>t.type==='expense'&&t.categoryId===cid&&t.date.startsWith(m)).map(t=>{
+ if(g==='共同')return !t.shares&&t.group==='共同'?Number(t.amount):0;
+ if(t.shares)return Number(t.shares[g]||0);
+ return t.group===g?Number(t.amount):0;
+}));
 const seg=(items,act,fn)=>items.map(i=>`<button type="button" onclick="${fn}('${esc(i)}')" class="flex-1 py-2 rounded-xl text-xs font-bold ${i===act?'bg-white text-brand-700 shadow-sm':'text-slate-600'}">${esc(i)}</button>`).join('');
 const catPath=t=>{const m=cat(t.categoryId)||{name:'未知分類'},s=cat(t.subCategoryId);return s?`${m.name} > ${s.name}`:m.name};
 let tt;
@@ -375,14 +379,14 @@ function submitTx(){
  toast(message,warn);resetForm();renderAdd();
 }
 function renderBudget(){
- $('bg-seg').innerHTML=seg(G,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
+ $('bg-seg').innerHTML=seg(P,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
  $('bg-list').innerHTML=mains('expense',true).map(c=>{const lim=Number(gb[c.id])||0,s=spent(U.bGroup,c.id,U.month);if(c.archived&&!lim&&!s)return'';tb+=lim;ts+=s;const pct=lim>0?Math.round(s/lim*100):0;
  let badge='',col='bg-emerald-500';if(lim>0){if(pct>=100){badge='<span class="bg-red-100 text-red-700 px-2 rounded-full text-[10px] font-bold">已超額</span>';col='bg-red-500'}else if(pct>=80){badge='<span class="bg-amber-100 text-amber-800 px-2 rounded-full text-[10px] font-bold">預警</span>';col='bg-amber-500'}else badge='<span class="bg-emerald-100 text-emerald-800 px-2 rounded-full text-[10px] font-bold">正常</span>'}
  return `<div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm space-y-2"><div class="flex items-center justify-between gap-2"><div class="flex items-center gap-2 min-w-0"><div class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">${esc(c.icon||'🏷️')}</div><div class="min-w-0"><div class="text-xs font-bold flex gap-1.5 items-center flex-wrap">${esc(c.name)} ${badge}</div><div class="text-[11px] text-slate-400">已用 ${money(s)}</div></div></div><label class="flex items-center gap-1 shrink-0"><span class="text-xs text-slate-400">$</span><input type="number" min="0" step="0.01" inputmode="decimal" value="${lim}" aria-label="${esc(c.name)}預算" onchange="setBudget('${esc(c.id)}',this.value)" class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right text-xs font-bold"></label></div><div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div class="${col} h-full" style="width:${Math.min(Math.max(pct,0),100)}%"></div></div></div>`;
  }).join('')||'<div class="text-center text-xs text-slate-400 py-6">暫無分類</div>';
  const tp=tb>0?Math.round(ts/tb*100):0;$('bg-amt').textContent=`${money(ts)} / ${money(tb)}`;$('bg-badge').textContent=tp+'%';$('bg-bar').style.width=Math.min(Math.max(tp,0),100)+'%';$('bg-bar').className='h-full rounded-full '+(tp>=100?'bg-red-400':tp>=80?'bg-amber-300':'bg-emerald-400');
 }
-function setBG(g){U.bGroup=g;renderBudget()}
+function setBG(g){if(!P.includes(g))return;U.bGroup=g;renderBudget()}
 function setBudget(id,v){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){toast('請輸入 0 或以上嘅數字',true);return renderBudget()}S.budgets[U.bGroup]=S.budgets[U.bGroup]||{};S.budgets[U.bGroup][id]=n;if(save()){renderBudget();toast(`已更新【${U.bGroup}】預算`)}}
 function renderRecords(){
  const fg=$('f-group').value,ft=$('f-type').value,q=$('f-q').value.trim().toLocaleLowerCase();
