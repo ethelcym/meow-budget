@@ -44,7 +44,7 @@ Static review limitations:
 5. Configure a separate development build to point to the test Project. Double-check the URL and Reference ID before signing in.
 6. Verify A and B can access only their household's state. Verify C cannot read or write that state and cannot add themselves to that household by direct table writes.
 7. Have A and B both read revision N. Save from A and confirm revision N+1. Attempt a save from B using stale revision N and confirm it fails with `REVISION_CONFLICT`; confirm B's local edit remains available for backup.
-8. Test remote Realtime updates with local state both clean and dirty. A notification is not the concurrency guarantee; the revision-checked RPC is.
+8. Test remote Realtime updates with local state both clean and dirty. A notification is not the concurrency guarantee; the revision-checked RPC is. Note: the current client filters out Realtime events whose `updated_by` equals the signed-in user's ID. Two devices signed in as the same account may therefore not display each other's updates immediately; revision compare-and-swap should still reject stale writes, but this same-account scenario must be explicitly tested and documented before claiming full multi-device behavior.
 9. Test first-time household/state initialization separately. Do not run simultaneous first-time bootstrap requests before the state row exists.
 10. Run the app regression tests for split attribution, repayments, recurring transaction boundaries/idempotency, edit/delete, JSON backup/import, and legacy-state normalization.
 11. Record actual results, including failures. Do not merge or deploy until database authorization, conflict handling, and regression tests all pass.
