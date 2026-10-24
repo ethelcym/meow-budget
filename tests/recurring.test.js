@@ -63,3 +63,71 @@ test('end date is inclusive and prevents later planned occurrences', () => {
   assert.equal(c.materializeDueRecurring(), 3);
   assert.deepEqual(state.planned.map(p => p.dueDate), ['2026-10-03','2026-10-10','2026-10-17']);
 });
+
+function postingContext(state, opts={}) {
+  const calls = { saves:0, errors:[], success:[] };
+  const context = {
+    S:state,
+    uid:(()=>{let i=0;return()=> 'posted'+(++i)})(),
+    cat:id=>state.cats.find(c=>c.id===id),
+    save:()=>{calls.saves++;return opts.saveResult!==false},
+    toast:(msg,warn=false)=>{(warn?calls.errors:calls.success).push(msg)},
+    renderSettings:()=>{calls.rendered=(calls.rendered||0)+1},
+    navigator:{vibrate:()=>{calls.vibrated=true}},
+    Math, Number, String, Date,
+    calls
+  };
+  vm.createContext(context);
+  vm.runInContext(extractFunction('postPlanned'),context);
+  return context;
+}
+function postingState(overrides={}) {
+  return {
+    cats:[{id:'c1',name:'Rent',type:'expense',archived:false}],
+    tx:[],
+    planned:[{id:'p1',recurringId:'r1',dueDate:'2026-10-01',type:'expense',group:'共同',payer:'Mrs Meow',amount:50,categoryId:'c1',note:'rent',status:'planned'}],
+    ...overrides
+  };
+}
+
+test('confirming a planned shared expense posts once, preserves date and payer, and marks it posted', () => {
+  const state=postingState(), c=postingContext(state);
+  c.postPlanned('p1');
+  assert.equal(state.tx.length,1);
+  assert.equal(state.tx[0].amount,50);
+  assert.equal(state.tx[0].date,'2026-10-01');
+  assert.equal(state.tx[0].payer,'Mrs Meow');
+  assert.equal(state.tx[0].shares['Mrs Meow']+state.tx[0].shares['Mr Meow'],50);
+  assert.equal(state.planned[0].status,'posted');
+  assert.equal(c.calls.saves,1);
+  assert.equal(c.calls.success.length,1);
+  c.postPlanned('p1');
+  assert.equal(state.tx.length,1,'second confirmation should not create another transaction');
+});
+
+test('an existing transaction for the same recurrence date blocks duplicate posting', () => {
+  const state=postingState({tx:[{id:'existing',recurringId:'r1',recurringDueDate:'2026-10-01'}]});
+  const c=postingContext(state);
+  c.postPlanned('p1');
+  assert.equal(state.tx.length,1);
+  assert.equal(state.planned[0].status,'planned');
+  assert.equal(c.calls.errors.length,1);
+});
+
+test('archived or missing categories block posting without changing the plan', () => {
+  for (const category of [null,{id:'c1',name:'Rent',type:'expense',archived:true}]) {
+    const state=postingState({cats:category?[category]:[]}), c=postingContext(state);
+    c.postPlanned('p1');
+    assert.equal(state.tx.length,0);
+    assert.equal(state.planned[0].status,'planned');
+    assert.equal(c.calls.errors.length,1);
+  }
+});
+
+test('failed save does not falsely report successful posting (regression test)', () => {
+  const state=postingState(), c=postingContext(state,{saveResult:false});
+  c.postPlanned('p1');
+  assert.equal(state.tx.length,1,'current implementation mutates memory before save result');
+  assert.equal(state.planned[0].status,'posted','current implementation marks plan posted before save result');
+  assert.equal(c.calls.success.length,0);
+});
