@@ -193,7 +193,7 @@ let S=load();
 /* 雲端設定：請在此填入 Supabase Project URL 及 anon/publishable key。
    只可使用 anon/publishable key；絕不可放 service_role key。 */
 const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'};
-let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null;
+let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null,cloudLocalDirty=false,cloudConflict=false,cloudSaveQueued=false;
 
 
 const cloudReady = () => !!(
@@ -274,16 +274,19 @@ async function pullCloudState(){
  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
 }
 function scheduleCloudSave(){
- if(!cloudClient||!cloudUser||!householdId)return;
+ if(!cloudClient||!cloudUser||!householdId||cloudConflict)return;
  clearTimeout(cloudTimer);cloudTimer=setTimeout(async()=>{
-  if(cloudBusy)return;
-  cloudBusy=true;
+  if(cloudConflict)return;
+  if(cloudBusy){cloudSaveQueued=true;return}
+  cloudBusy=true;cloudSaveQueued=false;
+  const snapshot=JSON.stringify(S);
   try{
-   const {error}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
+   const {error}=await cloudClient.from('app_state').upsert({household_id:householdId,state:JSON.parse(snapshot),updated_by:cloudUser.id});
    if(error)throw error;
-   setCloudStatus('雲端已同步 · '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}));
-  }catch(e){setCloudStatus('雲端同步失敗；本機仍有暫存。請勿清除網站資料。',false);console.error(e)}
-  finally{cloudBusy=false}
+   if(JSON.stringify(S)===snapshot){cloudLocalDirty=false;setCloudStatus('雲端已同步 · '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}))}
+   else{cloudLocalDirty=true;cloudSaveQueued=true}
+  }catch(e){cloudLocalDirty=true;setCloudStatus('雲端同步失敗；本機仍有暫存。請勿清除網站資料。',false);console.error(e)}
+  finally{cloudBusy=false;if(cloudSaveQueued&&!cloudConflict){cloudSaveQueued=false;scheduleCloudSave()}}
  },700);
 }
 function subscribeCloud(){
@@ -291,6 +294,7 @@ function subscribeCloud(){
  if(cloudChannel)cloudClient.removeChannel(cloudChannel);
  cloudChannel=cloudClient.channel('household-state-'+householdId).on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_state',filter:'household_id=eq.'+householdId},async payload=>{
   if(payload.new&&payload.new.updated_by!==cloudUser?.id&&payload.new.state){
+   if(cloudLocalDirty){cloudConflict=true;setCloudStatus('偵測到另一部裝置更新，而本機亦有未確認修改。已暫停自動覆寫；請先備份兩邊資料。',false);return}
    try{S=normalizeState(payload.new.state);localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
    catch(e){console.error('雲端資料格式不正確',e)}
   }
@@ -303,7 +307,7 @@ async function signOutCloud(){
  await cloudClient.auth.signOut();cloudUser=null;householdId=null;showAuth();
 }
 function save(){
- try{localStorage.setItem(K,JSON.stringify(S));scheduleCloudSave();return true}
+ try{localStorage.setItem(K,JSON.stringify(S));if(cloudClient&&cloudUser&&householdId)cloudLocalDirty=true;scheduleCloudSave();return true}
  catch(e){toast('儲存失敗：瀏覽器儲存空間可能不足，請先匯出備份',true);return false}
 }
 const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,saving:false,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
