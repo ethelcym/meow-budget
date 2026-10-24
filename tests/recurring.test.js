@@ -124,10 +124,10 @@ test('archived or missing categories block posting without changing the plan', (
   }
 });
 
-test('failed save does not falsely report successful posting (regression test)', () => {
+test('failed save rolls back the in-memory post and keeps the plan retryable', () => {
   const state=postingState(), c=postingContext(state,{saveResult:false});
   c.postPlanned('p1');
-  assert.equal(state.tx.length,1,'current implementation mutates memory before save result');
-  assert.equal(state.planned[0].status,'posted','current implementation marks plan posted before save result');
+  assert.equal(state.tx.length,0);
+  assert.equal(state.planned[0].status,'planned');
   assert.equal(c.calls.success.length,0);
 });
