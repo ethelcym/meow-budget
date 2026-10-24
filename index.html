@@ -246,7 +246,10 @@ async function createHousehold(){
   if(error)throw error;
   householdId=data;
   const {error:stateError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
-  if(stateError)throw stateError;cloudLocalDirty=false;cloudConflict=false;
+  if(stateError)throw stateError;
+  const {data:createdState,error:revisionError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();
+  if(revisionError)throw revisionError;
+  cloudRevision=Number(createdState.revision)||1;cloudLocalDirty=false;cloudConflict=false;
   hideAuth();subscribeCloud();setCloudStatus('已建立共用帳本；請把邀請碼分享給另一位使用者');
   const {data:hh,error:hhErr}=await cloudClient.from('households').select('invite_code').eq('id',householdId).single();
   if(hhErr)throw hhErr;
