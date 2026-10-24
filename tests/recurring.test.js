@@ -30,11 +30,14 @@ test('monthly recurrence clamps end-of-month dates without skipping a month', ()
   const c = contextFor({recurring:[], planned:[]}, '2026-01-01');
   assert.equal(c.nextOccurrence('2026-01-31', 'monthly'), '2026-02-28');
   assert.equal(c.nextOccurrence('2026-03-31', 'monthly'), '2026-04-30');
+  assert.equal(c.nextOccurrence('2026-02-28', 'monthly', 31, 0), '2026-03-31');
 });
 
 test('yearly recurrence clamps leap day in non-leap years', () => {
   const c = contextFor({recurring:[], planned:[]}, '2026-01-01');
   assert.equal(c.nextOccurrence('2024-02-29', 'yearly'), '2025-02-28');
+  assert.equal(c.nextOccurrence('2025-02-28', 'yearly', 29, 1), '2026-02-28');
+  assert.equal(c.nextOccurrence('2027-02-28', 'yearly', 29, 1), '2028-02-29');
 });
 
 test('due occurrences become planned, not actual transactions, and are idempotent', () => {
