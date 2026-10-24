@@ -12,19 +12,20 @@ Status: **repository review updated; production database and authorization behav
 - On a revision conflict, the client retains its local state, displays a warning, and pauses automatic sync. It does not automatically merge the two versions.
 - The client Realtime callback currently ignores updates whose `updated_by` matches the signed-in user. This can suppress updates from another device signed into the same account. This same-account multi-device behavior remains a known test item; do not claim instant cross-device sync is fully verified.
 - Household creation/joining and first-time missing-state bootstrap still use an upsert path to initialize `app_state`. That bootstrap is separate from revision-checked normal saves and can race if multiple devices initialize an absent state row at the same time.
-- The repository includes an incremental revision migration, but not a complete baseline schema migration for `households`, `household_members`, `app_state`, all RLS policies, and household creation/join functions. A fresh isolated project must not run the revision migration alone.
+- The repository now includes a baseline schema migration (`202610240000_initial_shared_household_schema.sql`) followed by the incremental revision migration (`202610240001_add_app_state_revision.sql`). The baseline is intended only for a fresh, empty isolated test project and must not be run against production or an existing project without a separate schema diff/review.
 
 ## Migration review: `202610240001_add_app_state_revision.sql`
 
 The migration:
 - adds `revision bigint NOT NULL DEFAULT 1` if the column is absent;
-- defines `save_app_state(bigint, jsonb)` with `SECURITY INVOKER` and `SET search_path = public`;
+- defines `save_app_state(bigint, jsonb)` with `SECURITY DEFINER` and a fixed `search_path = pg_catalog, public`;
 - rejects unauthenticated calls, invalid expected revisions, and null state;
 - updates only a row belonging to a household in which `auth.uid()` is a member and only when its current revision equals the expected revision;
 - increments and returns the revision, raising `REVISION_CONFLICT` when no row matches;
-- revokes execution from `PUBLIC` and `anon`, then grants it to `authenticated`.
+- revokes execution from `PUBLIC` and `anon`, then grants it to `authenticated`;
+- revokes direct `UPDATE` on `app_state` from browser roles so REST updates/upserts cannot bypass the revision check. The definer-rights RPC explicitly checks authentication, household membership, and the expected revision.
 
-This is a static code review, not proof that PostgreSQL runtime behavior, existing grants, RLS policies, or the full app flow are secure. The migration depends on the existing table structure and applicable RLS policies.
+This is a static code review, not proof that PostgreSQL runtime behavior, existing grants, RLS policies, or the full app flow are secure. The RPC uses `SECURITY DEFINER` because direct table updates are revoked. This increases the importance of its explicit membership predicate, fixed search path, schema-qualified table references, and restricted execute grants. The migration depends on the baseline table structure.
 
 ## Must be verified in Supabase before production release
 
@@ -45,7 +46,7 @@ Use the read-only catalog inspection script at `supabase/diagnostics/read_only_s
 ## Release blockers
 
 - The revision migration has **not** been applied to Supabase and the development client has not been validated against a dedicated test project.
-- The repository lacks a complete reviewed baseline schema/policy migration for provisioning an empty project.
+- The baseline schema migration is prepared for isolated testing but has not been executed or runtime-reviewed against a live test project.
 - Actual RLS policies, grants, RPC behavior, Realtime access, and backup restoration have not been runtime-tested.
 - Same-account multi-device Realtime behavior and the first-time state-bootstrap race still need explicit verification.
 
