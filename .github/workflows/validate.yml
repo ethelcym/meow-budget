@@ -1,0 +1,28 @@
+name: Validate Meow Budget
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path('index.html').read_text()
+          scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', html, re.S | re.I)
+          if not scripts:
+              raise SystemExit('No inline scripts found')
+          Path('/tmp/meow-budget-inline.js').write_text('\n;\n'.join(scripts))
+          PY
+          node --check /tmp/meow-budget-inline.js
+      - name: Run settlement model tests
+        run: node --test tests/*.test.js
