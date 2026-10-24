@@ -174,3 +174,116 @@ test('legacy state without recurrence fields migrates additively without changin
   assert.deepEqual(Array.from(result.repayments),[]);
   assert.equal(result.budgets['共同'].c1,500);
 });
+
+function integrationContext(state, extra={}) {
+  const calls={saves:0,toasts:[],renders:0,confirms:0};
+  const elements={};
+  const context={
+    S:state,G:['共同','Mrs Meow','Mr Meow'],P:['Mrs Meow','Mr Meow'],
+    U:{editId:null,type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,saving:false,cat:'c1',sub:null,tab:'add'},
+    uid:(()=>{let i=0;return()=> 'generated'+(++i)})(),
+    cat:id=>state.cats.find(c=>c.id===id),
+    spent:(g,cid,m)=>state.tx.filter(t=>t.type==='expense'&&t.categoryId===cid&&t.date.startsWith(m)).reduce((sum,t)=>sum+(g==='共同'?(!t.shares&&t.group==='共同'?t.amount:0):(t.shares?Number(t.shares[g]||0):(t.group===g?t.amount:0))),0),
+    save:()=>{calls.saves++;return extra.saveResult!==false},
+    toast:(msg,warn=false)=>calls.toasts.push({msg,warn}),
+    renderSettings:()=>{calls.renders++},renderRecords:()=>{calls.renders++},renderAdd:()=>{calls.renders++},
+    resetForm:()=>{context.U.editId=null},money:n=>'$'+Number(n).toFixed(2),
+    confirm:()=>{calls.confirms++;return extra.confirmResult!==false},
+    navigator:{vibrate(){}},Math,Number,String,Array,Object,Set,Date,
+    calls,
+    $:id=>elements[id]||(elements[id]={value:'',focus(){},select(){},classList:{add(){},remove(){}}}),
+    localStorage:{setItem(){}},
+    console
+  };
+  vm.createContext(context);
+  const names=['spent','currentSettlement','postPlanned','submitTx','editTx','delTx','normalizeState','showBackup','importBackup','load'];
+  const code=names.map(n=>{try{return extractFunction(n)}catch(e){return ''}}).join('\n');
+  vm.runInContext(code,context);
+  return context;
+}
+function integrationState() {
+  return {
+    cats:[{id:'c1',name:'Rent',type:'expense',archived:false}],
+    budgets:{'共同':{c1:100},'Mrs Meow':{c1:60},'Mr Meow':{c1:60}},
+    tx:[],
+    repayments:[],
+    recurring:[{id:'r1',type:'expense',group:'共同',payer:'Mrs Meow',amount:50.01,categoryId:'c1',note:'rent',frequency:'monthly',startDate:'2026-10-01',nextDue:'2026-11-01',anchorDay:1,anchorMonth:9,endDate:null,paused:false}],
+    planned:[{id:'p1',recurringId:'r1',dueDate:'2026-10-01',type:'expense',group:'共同',payer:'Mrs Meow',amount:50.01,categoryId:'c1',note:'rent',status:'planned'}]
+  };
+}
+
+test('posted recurring shared expense updates both personal budgets and settlement; repayment nets it down', () => {
+  const state=integrationState(),c=integrationContext(state);
+  c.postPlanned('p1');
+  assert.equal(state.tx.length,1);
+  assert.equal(c.spent('Mrs Meow','c1','2026-10'),25.01);
+  assert.equal(c.spent('Mr Meow','c1','2026-10'),25);
+  let st=c.currentSettlement();
+  assert.equal(st.tracked,5001);
+  assert.equal(st.outstanding,25.01);
+  state.repayments.push({id:'pay1',from:'Mr Meow',to:'Mrs Meow',amount:10,date:'2026-10-20'});
+  st=c.currentSettlement();
+  assert.equal(st.repaid,1000);
+  assert.equal(st.outstanding,15.01);
+});
+
+test('posted personal recurring expense affects only the selected person budget and records an advance correctly', () => {
+  const state=integrationState();
+  state.planned[0]={id:'p2',recurringId:'r1',dueDate:'2026-10-01',type:'expense',group:'Mr Meow',payer:'Mrs Meow',amount:80,categoryId:'c1',note:'personal bill',status:'planned'};
+  const c=integrationContext(state);
+  c.postPlanned('p2');
+  assert.equal(c.spent('Mrs Meow','c1','2026-10'),0);
+  assert.equal(c.spent('Mr Meow','c1','2026-10'),80);
+  const st=c.currentSettlement();
+  assert.equal(st.outstanding,80);
+  assert.equal(st.debtor,'Mr Meow');
+  assert.equal(st.creditor,'Mrs Meow');
+});
+
+test('deleting a posted recurring transaction removes its budget and settlement impact and reopens its plan', () => {
+  const state=integrationState();
+  state.tx=[{id:'tx1',type:'expense',group:'共同',payer:'Mrs Meow',amount:50.01,categoryId:'c1',date:'2026-10-01',note:'rent',shares:{'Mrs Meow':25.01,'Mr Meow':25},recurringId:'r1',recurringDueDate:'2026-10-01'}];
+  state.planned[0].status='posted';
+  const c=integrationContext(state);
+  c.delTx('tx1');
+  assert.equal(state.tx.length,0);
+  assert.equal(state.planned[0].status,'planned');
+  assert.equal(c.spent('Mrs Meow','c1','2026-10'),0);
+  assert.equal(c.currentSettlement().outstanding,0);
+});
+
+test('editing a posted recurring transaction preserves its recurrence identity', () => {
+  const state=integrationState();
+  state.tx=[{id:'tx1',type:'expense',group:'共同',payer:'Mrs Meow',amount:50,categoryId:'c1',date:'2026-10-01',note:'rent',shares:{'Mrs Meow':25,'Mr Meow':25},recurringId:'r1',recurringDueDate:'2026-10-01'}];
+  const c=integrationContext(state);
+  c.U.editId='tx1';c.U.type='expense';c.U.group='共同';c.U.payer='Mrs Meow';c.U.splitMode='equal';c.U.cat='c1';c.U.sub=null;
+  c.$('tx-amount').value='60';c.$('tx-date').value='2026-10-01';c.$('tx-note').value='edited rent';
+  c.submitTx();
+  assert.equal(state.tx[0].amount,60);
+  assert.equal(state.tx[0].recurringId,'r1');
+  assert.equal(state.tx[0].recurringDueDate,'2026-10-01');
+  assert.equal(c.currentSettlement().tracked,6000);
+});
+
+test('JSON backup round-trip and normalized reload retain recurring rules and planned items', () => {
+  const state=integrationState();
+  const c=integrationContext(state);
+  c.showBackup();
+  const backup=c.$('bk').value;
+  assert.ok(backup.includes('"recurring"'));
+  assert.ok(backup.includes('"planned"'));
+  const reloaded=JSON.parse(backup);
+  const normalized=c.normalizeState(reloaded);
+  assert.equal(normalized.recurring[0].id,'r1');
+  assert.equal(normalized.planned[0].id,'p1');
+  assert.equal(normalized.planned[0].status,'planned');
+  assert.equal(normalized.recurring[0].nextDue,'2026-11-01');
+});
+
+test('import validation rejects malformed planned references without replacing current state', () => {
+  const state=integrationState(),c=integrationContext(state);
+  c.$('bk').value=JSON.stringify({...state,planned:[{id:'bad',recurringId:'missing',dueDate:'2026-10-01',amount:10,status:'planned'}]});
+  c.importBackup();
+  assert.equal(state.planned[0].id,'p1');
+  assert.ok(c.calls.toasts.some(x=>x.warn));
+});
