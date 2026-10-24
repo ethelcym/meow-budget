@@ -65,5 +65,5 @@ REVOKE UPDATE ON TABLE public.app_state FROM anon;
 REVOKE UPDATE ON TABLE public.app_state FROM authenticated;
 
 REVOKE ALL ON FUNCTION public.save_app_state(uuid, bigint, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.save_app_state(bigint, jsonb) FROM anon;
-GRANT EXECUTE ON FUNCTION public.save_app_state(bigint, jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION public.save_app_state(uuid, bigint, jsonb) FROM anon;
+GRANT EXECUTE ON FUNCTION public.save_app_state(uuid, bigint, jsonb) TO authenticated;
