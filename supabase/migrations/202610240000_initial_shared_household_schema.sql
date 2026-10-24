@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE public.households (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  invite_code text NOT NULL UNIQUE DEFAULT upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 10)),
+  invite_code text NOT NULL UNIQUE DEFAULT upper(encode(gen_random_bytes(8), 'hex')),
   created_by uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -156,6 +156,9 @@ CREATE TRIGGER app_state_updated_at
 BEFORE UPDATE ON public.app_state
 FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+REVOKE ALL ON TABLE public.households, public.household_members, public.app_state FROM PUBLIC;
+REVOKE ALL ON TABLE public.households, public.household_members, public.app_state FROM anon;
+REVOKE ALL ON TABLE public.households, public.household_members, public.app_state FROM authenticated;
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT SELECT ON public.households, public.household_members TO authenticated;
 GRANT SELECT, INSERT ON public.app_state TO authenticated;
