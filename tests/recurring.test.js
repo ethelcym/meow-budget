@@ -131,3 +131,46 @@ test('failed save rolls back the in-memory post and keeps the plan retryable', (
   assert.equal(state.planned[0].status,'planned');
   assert.equal(c.calls.success.length,0);
 });
+
+test('recurring expenses count against each personal budget share, not a joint budget', () => {
+  const html=fs.readFileSync('index.html','utf8');
+  const start=html.indexOf('const spent=');
+  const end=html.indexOf('const seg=',start);
+  assert.ok(start>=0&&end>start,'spent calculation must exist');
+  const expression=html.slice(start,end).trim();
+  const state={tx:[
+    {type:'expense',group:'共同',amount:50,categoryId:'c1',date:'2026-10-01',shares:{'Mrs Meow':25,'Mr Meow':25}},
+    {type:'expense',group:'共同',amount:30,categoryId:'c1',date:'2026-10-02'},
+    {type:'expense',group:'Mr Meow',amount:80,categoryId:'c1',date:'2026-10-03',shares:{'Mrs Meow':0,'Mr Meow':80}}
+  ]};
+  const c={S:state,sum:a=>a.reduce((n,v)=>n+v,0),Number};
+  vm.createContext(c);
+  vm.runInContext(expression+'; this.spent=spent;',c);
+  assert.equal(c.spent('Mrs Meow','c1','2026-10'),25);
+  assert.equal(c.spent('Mr Meow','c1','2026-10'),105);
+  assert.equal(c.spent('共同','c1','2026-10'),30,'legacy joint expense remains visible without being counted twice');
+});
+
+test('legacy state without recurrence fields migrates additively without changing old transactions', () => {
+  const marker='function normalizeState(s){';
+  const start=html.indexOf(marker);
+  const end=html.indexOf('function load()',start);
+  assert.ok(start>=0&&end>start);
+  const context={
+    G:['共同','Mrs Meow','Mr Meow'],P:['Mrs Meow','Mr Meow'],
+    Set,Array,Number,String,Math,Error
+  };
+  vm.createContext(context);
+  vm.runInContext(html.slice(start,end),context);
+  const legacy={cats:[{id:'c1',name:'Rent',type:'expense'}],
+    tx:[{id:'old1',type:'expense',group:'共同',amount:30,date:'2026-09-01',categoryId:'c1',note:'old rent'}],
+    budgets:{'共同':{'c1':500},'Mrs Meow':{},'Mr Meow':{}}};
+  const result=context.normalizeState(legacy);
+  assert.equal(result.tx.length,1);
+  assert.equal(result.tx[0].id,'old1');
+  assert.equal(result.tx[0].amount,30);
+  assert.deepEqual(Array.from(result.recurring),[]);
+  assert.deepEqual(Array.from(result.planned),[]);
+  assert.deepEqual(Array.from(result.repayments),[]);
+  assert.equal(result.budgets['共同'].c1,500);
+});
