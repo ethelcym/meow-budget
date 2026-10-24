@@ -514,7 +514,9 @@ function postPlanned(id){
  if(S.tx.some(t=>t.recurringId===p.recurringId&&t.recurringDueDate===p.dueDate))return toast('已經入帳，避免重複記錄',true);
  const tx={id:uid(),type:p.type,group:p.group,payer:p.type==='expense'?p.payer:null,amount:p.amount,categoryId:p.categoryId,subCategoryId:null,date:p.dueDate,note:p.note,recurringId:p.recurringId,recurringDueDate:p.dueDate};
  if(p.type==='expense'){if(p.group==='共同')tx.shares={'Mrs Meow':Math.floor(Math.round(p.amount*100)/2)/100,'Mr Meow':(Math.round(p.amount*100)-Math.floor(Math.round(p.amount*100)/2))/100};else tx.shares={ 'Mrs Meow':p.group==='Mrs Meow'?p.amount:0,'Mr Meow':p.group==='Mr Meow'?p.amount:0};}
- S.tx.push(tx);p.status='posted';if(save()){toast('已確認入帳');if(navigator.vibrate)navigator.vibrate(12);renderSettings()}
+ S.tx.push(tx);p.status='posted';
+ if(!save()){S.tx=S.tx.filter(t=>t.id!==tx.id);p.status='planned';return}
+ toast('已確認入帳');if(navigator.vibrate)navigator.vibrate(12);renderSettings()
 }
 
 function renderSettings(){
