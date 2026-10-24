@@ -67,7 +67,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100 space-y-3">
         <div id="edit-note" class="hidden text-xs bg-amber-50 text-amber-800 rounded-xl p-2 flex justify-between"><span>✏️ 編輯中</span><button type="button" onclick="cancelEdit()" class="font-bold underline">取消</button></div>
         <div><label class="text-xs font-semibold text-slate-500">帳目歸屬</label><div id="group-seg" class="grid grid-cols-3 gap-2 mt-1"></div></div>
-        <div id="payer-box" class="hidden"><label class="text-xs font-semibold text-slate-500">💳 邊個俾錢（用嚟結算）</label><div id="payer-seg" class="grid grid-cols-2 gap-2 mt-1"></div></div>
+        <div id="payer-box" class="hidden"><label class="text-xs font-semibold text-slate-500">💳 實際付款人（用嚟結算）</label><div id="payer-seg" class="grid grid-cols-2 gap-2 mt-1"></div></div>
+        <div id="split-box" class="hidden rounded-2xl bg-amber-50/60 border border-amber-100 p-3 space-y-2">
+          <div class="text-xs font-bold text-amber-900">⚖️ 共同開支分攤</div>
+          <div id="split-seg" class="grid grid-cols-2 gap-2"></div>
+          <div id="custom-split" class="hidden grid grid-cols-2 gap-2">
+            <label class="text-[11px] text-slate-600">Mrs Meow 負擔 ($)<input id="share-mrs" type="number" min="0" step="0.01" inputmode="decimal" class="mt-1 w-full bg-white border border-slate-200 rounded-xl px-2 py-2 text-sm" oninput="U.shareMrs=this.value"></label>
+            <label class="text-[11px] text-slate-600">Mr Meow 負擔 ($)<input id="share-mr" type="number" min="0" step="0.01" inputmode="decimal" class="mt-1 w-full bg-white border border-slate-200 rounded-xl px-2 py-2 text-sm" oninput="U.shareMr=this.value"></label>
+          </div>
+          <div id="split-hint" class="text-[11px] text-slate-500">共同開支預設由雙方平均分攤。</div>
+        </div>
         <div><label for="tx-amount" class="text-xs font-semibold text-slate-500">金額 ($)</label><input type="number" inputmode="decimal" min="0.01" step="0.1" id="tx-amount" placeholder="0.00" class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-2xl font-bold focus:outline-none focus:border-brand-600"></div>
         <div><label class="text-xs font-semibold text-slate-500">主分類</label><div id="cat-chips" class="grid grid-cols-3 gap-2 mt-1 max-h-48 overflow-y-auto hs p-1"></div></div>
         <div id="sub-box" class="hidden bg-brand-50/40 p-3 rounded-2xl border border-brand-100 space-y-2"><div class="text-xs font-bold text-brand-800">🔀 想再細分嗎？</div><div id="sub-chips" class="flex flex-wrap gap-2"></div></div>
@@ -101,7 +110,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div id="rp-seg" class="flex gap-1 bg-slate-200/70 p-1 rounded-2xl"></div>
       <div class="grid grid-cols-3 gap-2 text-center" id="rp-sum"></div>
       <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm border-b pb-2">📊 支出分類彙總</div><div id="rp-break" class="space-y-2"></div></div>
-      <div class="bg-slate-900 text-white p-4 rounded-3xl space-y-2"><div class="text-sm font-bold text-amber-400">⚖️ 「共同」拆帳結算（50/50）</div><div id="settle" class="text-xs space-y-1.5 bg-slate-800 p-3 rounded-2xl"></div></div>
+      <div class="bg-slate-900 text-white p-4 rounded-3xl space-y-3"><div class="text-sm font-bold text-amber-400">⚖️ 共同／個人代付結算</div><div id="settle" class="text-xs space-y-1.5 bg-slate-800 p-3 rounded-2xl"></div><div class="border-t border-slate-700 pt-3 space-y-2"><div class="text-xs font-bold">記錄還款（唔會當成新開支）</div><div class="grid grid-cols-2 gap-2"><label class="text-[11px] text-slate-300">還款人<select id="repay-from" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2"><option>Mrs Meow</option><option>Mr Meow</option></select></label><label class="text-[11px] text-slate-300">收款人<select id="repay-to" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2"><option>Mr Meow</option><option>Mrs Meow</option></select></label></div><div class="grid grid-cols-2 gap-2"><label class="text-[11px] text-slate-300">還款金額 ($)<input id="repay-amount" type="number" min="0.01" step="0.01" inputmode="decimal" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2" placeholder="0.00"></label><label class="text-[11px] text-slate-300">還款日期<input id="repay-date" type="date" class="mt-1 w-full text-slate-800 bg-white rounded-xl px-2 py-2"></label></div><input id="repay-note" maxlength="200" class="w-full text-slate-800 bg-white rounded-xl px-3 py-2 text-xs" placeholder="備註（可選）"><button type="button" onclick="submitRepayment()" class="w-full bg-amber-400 text-slate-900 font-bold rounded-xl py-2.5 text-sm">＋ 記錄還款</button></div><div><div class="text-xs font-bold mb-2">還款紀錄</div><div id="repay-list" class="space-y-1.5 text-xs"></div></div></div>
     </section>
 
     <section id="view-settings" class="hidden p-4 space-y-3">
@@ -113,6 +122,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <button type="button" onclick="addCat()" class="w-full bg-brand-600 text-white font-bold py-2.5 rounded-xl text-xs">＋ 新增</button>
       </div>
       <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm">現有分類架構</div><p class="text-[11px] text-slate-400">有交易嘅分類唔會刪除，會「封存」（唔再顯示喺記帳選項，舊紀錄保留）。</p><div id="cat-tree" class="space-y-2"></div></div>
+      <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3"><div class="font-bold text-sm">🔁 週期性交易</div><p class="text-[11px] text-slate-500">建立每週、每月或每年重複嘅預設交易。到期只會建立「待確認」項目，撳入帳後先計入實際支出／收入；同一系列同一日期不會重複建立。</p><button type="button" onclick="addRecurring()" class="w-full bg-brand-600 text-white font-bold py-2.5 rounded-xl text-xs">＋ 新增週期交易</button><div id="recurring-list" class="space-y-2"></div><div class="font-bold text-xs pt-2 border-t">待確認交易</div><div id="planned-list" class="space-y-2"></div></div>
       <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2"><div class="font-bold text-sm">💾 備份 / 匯入 / 匯出</div>
         <p class="text-[11px] text-slate-500">資料暫存喺呢部裝置嘅瀏覽器；清除網站資料或換裝置前，請先備份。</p>
         <textarea id="bk" rows="5" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-[11px] font-mono" placeholder="備份內容會顯示喺度，複製後自行保存；要匯入就貼上 JSON 再撳匯入"></textarea>
@@ -146,6 +156,7 @@ function defaults(){
  c('c4','居住租金','expense','🏠'),c('c5','娛樂休閒','expense','🎮'),c('c6','醫療健康','expense','🩺'),
  c('inc1','薪金','income','💵'),c('inc2','租金收入','income','🏢'),c('inc3','銀行利息','income','🏦'),c('inc4','股票分紅','income','📈'),c('inc5','兼職副業','income','💼')],
  budgets:{'共同':{c1:3500,c2:1200,c3:2000,c4:10000,c5:1500,c6:1000},'Mrs Meow':{c1:2000,c2:800,c3:3000,c5:1000},'Mr Meow':{c1:2500,c2:1000,c3:1500,c5:1200}},
+ repayments:[],recurring:[],planned:[],
  tx:[
  {id:'t1',type:'expense',group:'共同',payer:'Mrs Meow',amount:150,categoryId:'c1',subCategoryId:'c1_1',date:m+'-02',note:'日式拉麵'},
  {id:'t2',type:'expense',group:'共同',payer:'Mr Meow',amount:246,categoryId:'c1',subCategoryId:null,date:m+'-03',note:'超市買肉食'},
@@ -160,9 +171,20 @@ function normalizeState(s){
  const catIds=new Set();
  s.cats.forEach(c=>{if(!c||typeof c.id!=='string'||typeof c.name!=='string'||!['expense','income'].includes(c.type))throw new Error('分類資料不完整');if(catIds.has(c.id))throw new Error('分類 ID 重複');catIds.add(c.id)});
  const txIds=new Set();
- s.tx.forEach(t=>{if(!t||typeof t.id!=='string'||txIds.has(t.id)||!['expense','income'].includes(t.type)||!G.includes(t.group)||!Number.isFinite(Number(t.amount))||Number(t.amount)<=0||typeof t.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||!catIds.has(t.categoryId))throw new Error('交易資料不完整');txIds.add(t.id);if(t.subCategoryId&&!catIds.has(t.subCategoryId))t.subCategoryId=null;if(t.type!=='expense'||t.group!=='共同')t.payer=null;else if(!P.includes(t.payer))t.payer=null;t.amount=Number(t.amount);t.note=String(t.note||'')});
+ s.tx.forEach(t=>{if(!t||typeof t.id!=='string'||txIds.has(t.id)||!['expense','income'].includes(t.type)||!G.includes(t.group)||!Number.isFinite(Number(t.amount))||Number(t.amount)<=0||typeof t.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.date)||!catIds.has(t.categoryId))throw new Error('交易資料不完整');txIds.add(t.id);if(t.subCategoryId&&!catIds.has(t.subCategoryId))t.subCategoryId=null;if(t.type!=='expense')t.payer=null;else if(!P.includes(t.payer))t.payer=null;if(t.recurringId!==undefined&&(!/^[a-z0-9]+$/i.test(String(t.recurringId))||typeof t.recurringDueDate!=='string'))throw new Error('週期交易關聯資料不正確');if(t.shares!==undefined&&t.shares!==null){if(!t.shares||typeof t.shares!=='object')throw new Error('分攤資料不完整');const a=Number(t.shares['Mrs Meow']),b=Number(t.shares['Mr Meow']);if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<0||Math.round(a*100)+Math.round(b*100)!==Math.round(Number(t.amount)*100))throw new Error('分攤金額必須等於交易總額');if(t.group==='Mrs Meow'&&(Math.round(a*100)!==Math.round(Number(t.amount)*100)||Math.round(b*100)!==0))throw new Error('Mrs Meow 個人開支必須全數歸入 Mrs Meow');if(t.group==='Mr Meow'&&(Math.round(b*100)!==Math.round(Number(t.amount)*100)||Math.round(a*100)!==0))throw new Error('Mr Meow 個人開支必須全數歸入 Mr Meow');t.shares={'Mrs Meow':Math.round(a*100)/100,'Mr Meow':Math.round(b*100)/100}}t.amount=Number(t.amount);t.note=String(t.note||'')});
  s.cats.forEach(c=>{if(c.parentId&&!catIds.has(c.parentId))c.parentId=null});
  G.forEach(g=>{if(!s.budgets[g]||typeof s.budgets[g]!=='object')s.budgets[g]={}});
+ // Additive migration: keep existing transactions and household data intact.
+ if(!Array.isArray(s.repayments))s.repayments=[];
+ if(!Array.isArray(s.recurring))s.recurring=[];
+ if(!Array.isArray(s.planned))s.planned=[];
+ const recurringIds=new Set();s.recurring.forEach(r=>{if(!r||typeof r.id!=='string'||recurringIds.has(r.id)||!['weekly','monthly','yearly'].includes(r.frequency)||!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(r.nextDue)||!(r.endDate===null||r.endDate===undefined||/^\d{4}-\d{2}-\d{2}$/.test(r.endDate))||!catIds.has(r.categoryId)||!G.includes(r.group)||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0)throw new Error('週期交易資料不完整');recurringIds.add(r.id);r.amount=Number(r.amount);if(r.endDate==='')r.endDate=null;if(!r.note)r.note='';if(!r.type)r.type='expense';if(r.type!=='expense'&&r.type!=='income')throw new Error('週期交易類型不正確');if(r.type==='expense'&&!P.includes(r.payer))r.payer='Mrs Meow';if(r.type==='income')r.payer=null;});
+ const plannedIds=new Set();s.planned.forEach(p=>{if(!p||typeof p.id!=='string'||plannedIds.has(p.id)||!recurringIds.has(p.recurringId)||!/^\d{4}-\d{2}-\d{2}$/.test(p.dueDate)||!Number.isFinite(Number(p.amount))||Number(p.amount)<=0||!['planned','posted'].includes(p.status))throw new Error('預設交易資料不完整');plannedIds.add(p.id);p.amount=Number(p.amount)});
+ const repaymentIds=new Set();
+ s.repayments.forEach(r=>{
+  if(!r||typeof r.id!=='string'||repaymentIds.has(r.id)||!P.includes(r.from)||!P.includes(r.to)||r.from===r.to||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0||typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))throw new Error('還款資料不完整');
+  repaymentIds.add(r.id);r.amount=Number(r.amount);r.note=String(r.note||'');
+ });
  return s;
 }
 function load(){try{const raw=localStorage.getItem(K);if(raw)return normalizeState(JSON.parse(raw))}catch(e){console.warn('讀取本機資料失敗：',e)}return defaults()}
@@ -170,8 +192,9 @@ let S=load();
 
 /* 雲端設定：請在此填入 Supabase Project URL 及 anon/publishable key。
    只可使用 anon/publishable key；絕不可放 service_role key。 */
-const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'};
-let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null;
+/* ISOLATED ACCEPTANCE TEST ONLY: do not merge this config into production. */
+const CLOUD_CONFIG={url:'https://kixnyvgqtznjzdrvbweb.supabase.co',anonKey:'sb_publishable_mnJnmG3kx90oc6BXXwcu0g_B-Qtu36r'};
+let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null,cloudLocalDirty=false,cloudConflict=false,cloudSaveQueued=false,cloudRevision=null;
 
 
 const cloudReady = () => !!(
@@ -225,6 +248,9 @@ async function createHousehold(){
   householdId=data;
   const {error:stateError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
   if(stateError)throw stateError;
+  const {data:createdState,error:revisionError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();
+  if(revisionError)throw revisionError;
+  cloudRevision=Number(createdState.revision)||1;cloudLocalDirty=false;cloudConflict=false;
   hideAuth();subscribeCloud();setCloudStatus('已建立共用帳本；請把邀請碼分享給另一位使用者');
   const {data:hh,error:hhErr}=await cloudClient.from('households').select('invite_code').eq('id',householdId).single();
   if(hhErr)throw hhErr;
@@ -238,38 +264,65 @@ async function joinHousehold(){
  try{
   const {data,error}=await cloudClient.rpc('join_household',{p_invite_code:code});
   if(error)throw error;householdId=data;
-  const {data:remote,error:readError}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
+  const {data:remote,error:readError}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).maybeSingle();
   if(readError)throw readError;
-  if(remote&&remote.state){S=normalizeState(remote.state);localStorage.setItem(K,JSON.stringify(S))}
-  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
+  if(remote&&remote.state){S=normalizeState(remote.state);cloudRevision=Number(remote.revision)||1;localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
+  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:createdError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(createdError)throw createdError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
   hideAuth();subscribeCloud();setCloudStatus('已加入共用帳本並同步');render();
  }catch(e){authMessage('加入失敗：'+e.message)}
 }
 async function pullCloudState(){
- const {data,error}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
+ const {data,error}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).maybeSingle();
  if(error)throw error;
- if(data&&data.state){S=normalizeState(data.state);localStorage.setItem(K,JSON.stringify(S))}
- else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
+ if(data&&data.state){S=normalizeState(data.state);cloudRevision=Number(data.revision)||1;localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
+ else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:readError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(readError)throw readError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
 }
 function scheduleCloudSave(){
- if(!cloudClient||!cloudUser||!householdId)return;
+ if(!cloudClient||!cloudUser||!householdId||cloudConflict)return;
  clearTimeout(cloudTimer);cloudTimer=setTimeout(async()=>{
-  if(cloudBusy)return;
-  cloudBusy=true;
+  if(cloudConflict)return;
+  if(cloudBusy){cloudSaveQueued=true;return}
+  cloudBusy=true;cloudSaveQueued=false;
+  const snapshot=JSON.stringify(S),expectedRevision=cloudRevision;
   try{
-   const {error}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
-   if(error)throw error;
-   setCloudStatus('雲端已同步 · '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}));
-  }catch(e){setCloudStatus('雲端同步失敗；本機仍有暫存。請勿清除網站資料。',false);console.error(e)}
-  finally{cloudBusy=false}
+   if(!Number.isInteger(expectedRevision)||expectedRevision<1)throw new Error('雲端版本尚未載入，已停止寫入以保護資料。請重新整理後再試。');
+   const {data,error}=await cloudClient.rpc('save_app_state',{p_household_id:householdId,p_expected_revision:expectedRevision,p_state:JSON.parse(snapshot)});
+   if(error){
+    const message=String(error.message||error);
+    if(/REVISION_CONFLICT|版本衝突|STALE_REVISION/i.test(message)){
+     cloudConflict=true;cloudLocalDirty=true;
+     setCloudStatus('偵測到雲端版本已更新。本機修改已保留，已暫停自動同步；請先匯出本機備份，再重新載入雲端資料處理衝突。',false);
+     return;
+    }
+    throw error;
+   }
+   cloudRevision=Number(data);
+   if(JSON.stringify(S)===snapshot){cloudLocalDirty=false;setCloudStatus('雲端已同步 · '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}))}
+   else{cloudLocalDirty=true;cloudSaveQueued=true}
+  }catch(e){cloudLocalDirty=true;setCloudStatus('雲端同步失敗；本機仍有暫存。請勿清除網站資料。',false);console.error(e)}
+  finally{cloudBusy=false;if(cloudSaveQueued&&!cloudConflict){cloudSaveQueued=false;scheduleCloudSave()}}
  },700);
 }
 function subscribeCloud(){
  if(!cloudClient||!householdId)return;
  if(cloudChannel)cloudClient.removeChannel(cloudChannel);
  cloudChannel=cloudClient.channel('household-state-'+householdId).on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_state',filter:'household_id=eq.'+householdId},async payload=>{
-  if(payload.new&&payload.new.updated_by!==cloudUser?.id&&payload.new.state){
-   try{S=normalizeState(payload.new.state);localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
+  if(payload.new&&payload.new.state){
+   const incomingRevision=Number(payload.new.revision)||0;
+   if(incomingRevision&&incomingRevision<=Number(cloudRevision||0))return;
+   if(cloudLocalDirty){
+    // A same-account device can receive its own save event before the RPC response.
+    // Treat an identical state as an acknowledgement, not as a competing edit.
+    try{
+     const incomingState=normalizeState(payload.new.state);
+     if(JSON.stringify(incomingState)===JSON.stringify(S)){
+      cloudRevision=incomingRevision||cloudRevision;
+      return;
+     }
+    }catch(e){console.error('雲端資料格式不正確',e)}
+    cloudConflict=true;setCloudStatus('偵測到另一部裝置更新，而本機亦有未確認修改。已暫停自動覆寫；請先備份兩邊資料。',false);return
+   }
+   try{S=normalizeState(payload.new.state);cloudRevision=incomingRevision||cloudRevision;localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
    catch(e){console.error('雲端資料格式不正確',e)}
   }
  }).subscribe();
@@ -281,15 +334,19 @@ async function signOutCloud(){
  await cloudClient.auth.signOut();cloudUser=null;householdId=null;showAuth();
 }
 function save(){
- try{localStorage.setItem(K,JSON.stringify(S));scheduleCloudSave();return true}
+ try{localStorage.setItem(K,JSON.stringify(S));if(cloudClient&&cloudUser&&householdId)cloudLocalDirty=true;scheduleCloudSave();return true}
  catch(e){toast('儲存失敗：瀏覽器儲存空間可能不足，請先匯出備份',true);return false}
 }
-const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',cat:null,sub:null,editId:null,bGroup:'共同',rGroup:'合計',month:ld().slice(0,7),limit:50};
+const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,saving:false,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
 const cat=id=>S.cats.find(c=>c.id===id);
 const mains=(type,all=false)=>S.cats.filter(c=>c.type===type&&!c.parentId&&(all||!c.archived));
 const subs=id=>S.cats.filter(c=>c.parentId===id&&!c.archived);
 const sum=a=>a.reduce((s,t)=>s+(Number(t.amount)||0),0);
-const spent=(g,cid,m)=>sum(S.tx.filter(t=>t.type==='expense'&&t.group===g&&t.categoryId===cid&&t.date.startsWith(m)));
+const spent=(g,cid,m)=>sum(S.tx.filter(t=>t.type==='expense'&&t.categoryId===cid&&t.date.startsWith(m)).map(t=>{
+ if(g==='共同')return !t.shares&&t.group==='共同'?Number(t.amount):0;
+ if(t.shares)return Number(t.shares[g]||0);
+ return t.group===g?Number(t.amount):0;
+}));
 const seg=(items,act,fn)=>items.map(i=>`<button type="button" onclick="${fn}('${esc(i)}')" class="flex-1 py-2 rounded-xl text-xs font-bold ${i===act?'bg-white text-brand-700 shadow-sm':'text-slate-600'}">${esc(i)}</button>`).join('');
 const catPath=t=>{const m=cat(t.categoryId)||{name:'未知分類'},s=cat(t.subCategoryId);return s?`${m.name} > ${s.name}`:m.name};
 let tt;
@@ -306,8 +363,13 @@ function render(){
 function renderAdd(){
  $('type-seg').innerHTML=[['expense','⬇️ 支出'],['income','⬆️ 收入']].map(([k,n])=>`<button type="button" onclick="setType('${k}')" class="py-2.5 rounded-xl font-bold text-sm ${U.type===k?'bg-white text-brand-700 shadow-sm':'text-slate-500'}">${n}</button>`).join('');
  $('group-seg').innerHTML=G.map(g=>`<button type="button" onclick="setGroup('${g}')" class="py-2 text-xs font-bold rounded-xl border ${g===U.group?'border-brand-600 bg-brand-50 text-brand-700':'border-slate-200 bg-white text-slate-600'}">${g}</button>`).join('');
- const showP=U.type==='expense'&&U.group==='共同';$('payer-box').classList.toggle('hidden',!showP);
- $('payer-seg').innerHTML=P.map(p=>`<button type="button" onclick="U.payer='${p}';renderAdd()" class="py-2 text-xs font-bold rounded-xl border ${p===U.payer?'border-amber-500 bg-amber-50 text-amber-800':'border-slate-200 bg-white text-slate-600'}">${p} 俾</button>`).join('');
+ const showP=U.type==='expense';$('payer-box').classList.toggle('hidden',!showP);
+ $('payer-seg').innerHTML=P.map(p=>`<button type="button" onclick="U.payer='${p}';renderAdd()" class="py-2 text-xs font-bold rounded-xl border ${p===U.payer?'border-amber-500 bg-amber-50 text-amber-800':'border-slate-200 bg-white text-slate-600'}">${p} 付款</button>`).join('');
+ const showSplit=U.type==='expense'&&U.group==='共同';$('split-box').classList.toggle('hidden',!showSplit);
+ $('split-seg').innerHTML=[['equal','平均分攤'],['custom','自訂金額']].map(([k,n])=>`<button type="button" onclick="U.splitMode='${k}';renderAdd()" class="py-2 text-xs font-bold rounded-xl border ${U.splitMode===k?'border-amber-500 bg-amber-100 text-amber-900':'border-slate-200 bg-white text-slate-600'}">${n}</button>`).join('');
+ $('custom-split').classList.toggle('hidden',!showSplit||U.splitMode!=='custom');
+ $('share-mrs').value=U.shareMrs??'';$('share-mr').value=U.shareMr??'';
+ $('split-hint').textContent=U.splitMode==='equal'?'共同開支預設由雙方平均分攤。':'兩人負擔金額必須加起來等於整筆開支。';
  const ms=mains(U.type);if(!ms.some(c=>c.id===U.cat))U.cat=ms[0]?.id||null;
  $('cat-chips').innerHTML=ms.map(c=>`<button type="button" onclick="U.cat='${esc(c.id)}';U.sub=null;renderAdd()" class="py-2.5 px-1 rounded-2xl text-xs font-bold flex flex-col items-center gap-1 border ${c.id===U.cat?'bg-brand-600 text-white border-brand-600 shadow-md':'bg-white text-slate-700 border-slate-200'}"><span>${esc(c.icon||'🏷️')}</span><span class="truncate w-full text-center">${esc(c.name)}</span></button>`).join('')||'<div class="col-span-3 text-xs text-slate-400 py-3">未有分類，請先到「設定」新增。</div>';
  const ss=U.cat?subs(U.cat):[];if(U.sub&&!ss.some(s=>s.id===U.sub))U.sub=null;
@@ -317,10 +379,10 @@ function renderAdd(){
  $('edit-note').classList.toggle('hidden',!U.editId);$('submit-btn').textContent=U.editId?'✓ 更新記帳':'✓ 確定記帳';renderAlerts();
 }
 function setType(t){U.type=t;U.cat=null;U.sub=null;renderAdd()}
-function setGroup(g){U.group=g;renderAdd()}
+function setGroup(g){U.group=g;if(g==='Mrs Meow')U.payer='Mrs Meow';else if(g==='Mr Meow')U.payer='Mr Meow';U.splitMode='equal';renderAdd()}
 function alertsFor(g,m){const out=[];mains('expense',true).forEach(c=>{const lim=Number((S.budgets[g]||{})[c.id])||0;if(lim>0){const s=spent(g,c.id,m),r=s/lim;if(r>=.8)out.push({g,name:c.name,s,lim,danger:r>=1,r})}});return out}
 function renderAlerts(){
- const m=($('tx-date').value||ld()).slice(0,7),w=alertsFor(U.group,m);
+ const m=($('tx-date').value||ld()).slice(0,7),targets=U.type==='expense'&&U.group==='共同'?P:[U.group],w=targets.flatMap(g=>alertsFor(g,m));
  $('add-warn').innerHTML=w.map(x=>`<div class="p-2.5 rounded-2xl text-xs border ${x.danger?'bg-red-50 text-red-700 border-red-200':'bg-amber-50 text-amber-800 border-amber-200'}"><b>${esc(x.g)} • ${esc(x.name)}</b>：${x.danger?'超出預算！':'已用達80%'}（${m}　${money(x.s)} / ${money(x.lim)}）</div>`).join('');
  $('banner').classList.toggle('hidden',!w.length);
  if(w.length)$('banner-t').textContent=`【${w[0].g} - ${w[0].name}】${w[0].danger?'已爆預算':'預算達 '+Math.round(w[0].r*100)+'%'}`;
@@ -333,24 +395,40 @@ function submitTx(){
  if(!U.cat||!cat(U.cat)||cat(U.cat).archived)return toast('請選擇有效分類！',true);
  if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return toast('請選擇有效日期！',true);
  if(U.sub&&(!cat(U.sub)||cat(U.sub).parentId!==U.cat||cat(U.sub).archived))U.sub=null;
- const tx={id:U.editId||uid(),type:U.type,group:U.group,payer:(U.type==='expense'&&U.group==='共同')?U.payer:null,amount,categoryId:U.cat,subCategoryId:U.sub,date,note};
- const wasEdit=!!U.editId;
- if(wasEdit)S.tx=S.tx.map(t=>t.id===U.editId?tx:t);else S.tx.unshift(tx);
- if(!save())return;
+ let shares=null;
+ if(U.type==='expense'){
+  if(U.group==='共同'){
+   if(U.splitMode==='custom'){
+    const a=Number(U.shareMrs),b=Number(U.shareMr);
+    if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<0||Math.round(a*100)+Math.round(b*100)!==Math.round(amount*100))return toast('兩人分攤金額必須加起來等於開支總額。',true);
+    shares={'Mrs Meow':Math.round(a*100)/100,'Mr Meow':Math.round(b*100)/100};
+   }else{const a=Math.floor(Math.round(amount*100)/2)/100;shares={'Mrs Meow':a,'Mr Meow':Math.round(amount*100)/100-a};}
+  }else shares={'Mrs Meow':U.group==='Mrs Meow'?amount:0,'Mr Meow':U.group==='Mr Meow'?amount:0};
+ }
+ const tx={id:U.editId||uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,shares,amount,categoryId:U.cat,subCategoryId:U.sub,date,note};
+ if(U.saving)return;
+ U.saving=true;
+ const wasEdit=!!U.editId,oldTx=S.tx;
+ if(wasEdit){
+  const previous=oldTx.find(t=>t.id===U.editId);
+  if(previous&&previous.recurringId){tx.recurringId=previous.recurringId;tx.recurringDueDate=previous.recurringDueDate}
+  S.tx=S.tx.map(t=>t.id===U.editId?tx:t);
+ }else S.tx.unshift(tx);
+ if(!save()){S.tx=oldTx;U.saving=false;return}
  const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
  let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
- if(tx.type==='expense'){const m=date.slice(0,7),lim=Number((S.budgets[tx.group]||{})[main.id])||0;if(lim>0){const s=spent(tx.group,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true}else if(s/lim>=.8){message=`已記帳！【${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}
- toast(message,warn);resetForm();renderAdd();
+ if(tx.type==='expense'){const m=date.slice(0,7),targets=tx.group==='共同'?P:[tx.group];for(const g of targets){const lim=Number((S.budgets[g]||{})[main.id])||0;if(lim>0){const s=spent(g,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${g} - ${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true;break}else if(s/lim>=.8){message=`已記帳！【${g} - ${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}}
+ toast(message,warn);if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(12);resetForm();U.saving=false;renderAdd();
 }
 function renderBudget(){
- $('bg-seg').innerHTML=seg(G,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
+ $('bg-seg').innerHTML=seg(P,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
  $('bg-list').innerHTML=mains('expense',true).map(c=>{const lim=Number(gb[c.id])||0,s=spent(U.bGroup,c.id,U.month);if(c.archived&&!lim&&!s)return'';tb+=lim;ts+=s;const pct=lim>0?Math.round(s/lim*100):0;
  let badge='',col='bg-emerald-500';if(lim>0){if(pct>=100){badge='<span class="bg-red-100 text-red-700 px-2 rounded-full text-[10px] font-bold">已超額</span>';col='bg-red-500'}else if(pct>=80){badge='<span class="bg-amber-100 text-amber-800 px-2 rounded-full text-[10px] font-bold">預警</span>';col='bg-amber-500'}else badge='<span class="bg-emerald-100 text-emerald-800 px-2 rounded-full text-[10px] font-bold">正常</span>'}
  return `<div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm space-y-2"><div class="flex items-center justify-between gap-2"><div class="flex items-center gap-2 min-w-0"><div class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">${esc(c.icon||'🏷️')}</div><div class="min-w-0"><div class="text-xs font-bold flex gap-1.5 items-center flex-wrap">${esc(c.name)} ${badge}</div><div class="text-[11px] text-slate-400">已用 ${money(s)}</div></div></div><label class="flex items-center gap-1 shrink-0"><span class="text-xs text-slate-400">$</span><input type="number" min="0" step="0.01" inputmode="decimal" value="${lim}" aria-label="${esc(c.name)}預算" onchange="setBudget('${esc(c.id)}',this.value)" class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right text-xs font-bold"></label></div><div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div class="${col} h-full" style="width:${Math.min(Math.max(pct,0),100)}%"></div></div></div>`;
  }).join('')||'<div class="text-center text-xs text-slate-400 py-6">暫無分類</div>';
  const tp=tb>0?Math.round(ts/tb*100):0;$('bg-amt').textContent=`${money(ts)} / ${money(tb)}`;$('bg-badge').textContent=tp+'%';$('bg-bar').style.width=Math.min(Math.max(tp,0),100)+'%';$('bg-bar').className='h-full rounded-full '+(tp>=100?'bg-red-400':tp>=80?'bg-amber-300':'bg-emerald-400');
 }
-function setBG(g){U.bGroup=g;renderBudget()}
+function setBG(g){if(!P.includes(g))return;U.bGroup=g;renderBudget()}
 function setBudget(id,v){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){toast('請輸入 0 或以上嘅數字',true);return renderBudget()}S.budgets[U.bGroup]=S.budgets[U.bGroup]||{};S.budgets[U.bGroup][id]=n;if(save()){renderBudget();toast(`已更新【${U.bGroup}】預算`)}}
 function renderRecords(){
  const fg=$('f-group').value,ft=$('f-type').value,q=$('f-q').value.trim().toLocaleLowerCase();
@@ -364,8 +442,42 @@ function renderRecords(){
  if(list.length>shown.length)html+=`<button type="button" onclick="U.limit+=50;renderRecords()" class="w-full py-2 text-xs font-bold text-brand-700 bg-brand-50 rounded-xl">載入更多（尚有 ${list.length-shown.length} 筆）</button>`;
  $('rec-list').innerHTML=html;
 }
-function editTx(id){const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||'Mrs Meow',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
-function delTx(id){if(!confirm('確定刪除此筆記帳？'))return;S.tx=S.tx.filter(t=>t.id!==id);if(save()){toast('紀錄已刪除');renderRecords()}}
+function editTx(id){const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.group==='共同'&&(!t.shares||Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001)?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
+function delTx(id){
+ if(!confirm('確定刪除此筆記帳？'))return;
+ const oldTx=S.tx,oldPlanned=S.planned;
+ const removed=oldTx.find(t=>t.id===id);
+ S.tx=oldTx.filter(t=>t.id!==id);
+ if(removed&&removed.recurringId){
+  S.planned=oldPlanned.map(p=>p.recurringId===removed.recurringId&&p.dueDate===removed.recurringDueDate?{...p,status:'planned'}:p);
+ }
+ if(!save()){S.tx=oldTx;S.planned=oldPlanned;return}
+ toast('紀錄已刪除');renderRecords()
+}
+function currentSettlement(){
+ const balance={'Mrs Meow':0,'Mr Meow':0};let tracked=0,legacy=0,repaid=0;
+ S.tx.filter(t=>t.type==='expense').forEach(t=>{
+  if(!t.shares){if(t.group==='共同')legacy+=Math.round(Number(t.amount)*100)||0;return}
+  const amount=Math.round(Number(t.amount)*100),a=Math.round(Number(t.shares['Mrs Meow']||0)*100),b=Math.round(Number(t.shares['Mr Meow']||0)*100);
+  if(a+b!==amount||!P.includes(t.payer))return;
+  tracked+=amount;balance['Mrs Meow']-=a;balance['Mr Meow']-=b;balance[t.payer]+=amount;
+ });
+ S.repayments.forEach(r=>{const amount=Math.round(Number(r.amount)*100);if(amount>0&&P.includes(r.from)&&P.includes(r.to)&&r.from!==r.to){balance[r.from]+=amount;balance[r.to]-=amount;repaid+=amount}});
+ const diff=balance['Mrs Meow'],outstanding=Math.abs(diff)/100;
+ return {tracked,legacy,repaid,balance,outstanding,debtor:diff>0?'Mr Meow':diff<0?'Mrs Meow':null,creditor:diff>0?'Mrs Meow':diff<0?'Mr Meow':null};
+}
+function submitRepayment(){
+ const from=$('repay-from').value,to=$('repay-to').value,amount=Number($('repay-amount').value),date=$('repay-date').value||ld(),note=$('repay-note').value.trim(),st=currentSettlement();
+ if(!P.includes(from)||!P.includes(to)||from===to)return toast('請選擇不同的還款人及收款人。',true);
+ if(!Number.isFinite(amount)||amount<=0)return toast('請輸入大於 0 的還款金額。',true);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return toast('請選擇有效還款日期。',true);
+ if(!st.debtor||from!==st.debtor||to!==st.creditor)return toast('還款方向與目前欠款方向不一致。',true);
+ if(Math.round(amount*100)>Math.round(st.outstanding*100))return toast('還款金額不可超過目前欠款。',true);
+ const old=S.repayments;S.repayments=[...old,{id:uid(),from,to,amount:Math.round(amount*100)/100,date,note}];
+ if(!save()){S.repayments=old;return}
+ $('repay-amount').value='';$('repay-note').value='';toast('還款已記錄，原本開支不會被刪除。');renderReports();
+}
+function deleteRepayment(id){if(!confirm('確定刪除此筆還款紀錄？原本開支會保留。'))return;const old=S.repayments;S.repayments=old.filter(r=>r.id!==id);if(save()){toast('還款紀錄已刪除');renderReports()}else S.repayments=old}
 function setRG(g){U.rGroup=g;renderReports()}
 function renderReports(){
  $('rp-seg').innerHTML=seg(['合計',...G],U.rGroup,'setRG');
@@ -373,10 +485,83 @@ function renderReports(){
  $('rp-sum').innerHTML=[['收入',inc,'text-emerald-600'],['支出',tot,'text-red-500'],['結餘',bal,bal<0?'text-red-500':'text-slate-800']].map(([n,v,c])=>`<div class="bg-slate-50 rounded-2xl p-2.5 border border-slate-100"><div class="text-[11px] text-slate-400">${n}</div><div class="font-extrabold text-sm ${c}">${money(v)}</div></div>`).join('');
  let h='';mains('expense',true).forEach(m=>{const mt=ex.filter(t=>t.categoryId===m.id),mv=sum(mt);if(!mv)return;const rows=S.cats.filter(c=>c.parentId===m.id).map(s=>[s.name,sum(mt.filter(t=>t.subCategoryId===s.id))]);rows.push(['未細分',sum(mt.filter(t=>!t.subCategoryId||!cat(t.subCategoryId)))]);h+=`<div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-100"><div class="flex justify-between text-xs font-bold"><span>${esc(m.icon||'')} ${esc(m.name)} <span class="text-[10px] text-slate-400 font-normal">(${tot?(mv/tot*100).toFixed(1):'0.0'}%)</span></span><span>${money(mv)}</span></div>${rows.filter(r=>r[1]>0).map(r=>`<div class="flex justify-between text-xs text-slate-500 pl-5 py-0.5"><span>• ${esc(r[0])}</span><span>${money(r[1])}</span></div>`).join('')}</div>`});
  $('rp-break').innerHTML=h||'<div class="text-center text-xs text-slate-400 py-6">本月尚無支出紀錄</div>';
- const jt=S.tx.filter(t=>t.group==='共同'&&t.type==='expense'&&t.date.startsWith(U.month)),pd=p=>sum(jt.filter(t=>t.payer===p)),un=sum(jt.filter(t=>!P.includes(t.payer))),a=pd(P[0]),b=pd(P[1]),share=(a+b)/2,diff=(a-b)/2;
- $('settle').innerHTML=`<div class="flex justify-between text-slate-300"><span>${P[0]} 已付</span><b class="text-white">${money(a)}</b></div><div class="flex justify-between text-slate-300"><span>${P[1]} 已付</span><b class="text-white">${money(b)}</b></div><div class="flex justify-between text-slate-300"><span>每人應負擔</span><b class="text-amber-300">${money(share)}</b></div><div class="pt-2 border-t border-slate-700 text-[12px]">${Math.abs(diff)<.005?'✅ 已平帳，無需轉帳':`👉 <b class="text-amber-300">${diff>0?P[1]:P[0]}</b> 需轉 <b class="text-amber-300">${money(Math.abs(diff))}</b> 畀 ${diff>0?P[0]:P[1]}`}</div>${un>0?`<div class="text-[11px] text-slate-500">另有 ${money(un)} 未指定付款人，未計入結算</div>`:''}`;
+ const st=currentSettlement();
+ $('settle').innerHTML=`<div class="text-[11px] text-slate-400 mb-2">按所有已設定分攤的開支計算，欠款會跨月累積。</div><div class="flex justify-between text-slate-300"><span>已納入結算的開支</span><b class="text-white">${money(st.tracked/100)}</b></div><div class="flex justify-between text-slate-300"><span>已記錄還款</span><b class="text-white">${money(st.repaid/100)}</b></div><div class="pt-2 border-t border-slate-700 text-[12px]">${!st.debtor||st.outstanding<0.005?'✅ 已平帳，無需轉帳':`👉 <b class="text-amber-300">${st.debtor}</b> 尚欠 <b class="text-amber-300">${money(st.outstanding)}</b> 畀 ${st.creditor}`}</div>${st.legacy>0?`<div class="text-[11px] text-amber-300 mt-2">另有 ${money(st.legacy/100)} 舊共同開支未設定分攤，為免改動舊帳，暫未納入欠款計算。</div>`:''}`;
+ if(!$('repay-date').value)$('repay-date').value=ld();
+ $('repay-from').value=st.debtor||'Mr Meow';$('repay-to').value=st.creditor||'Mrs Meow';
+ $('repay-list').innerHTML=S.repayments.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<div class="flex justify-between gap-2 bg-slate-800 rounded-xl p-2"><span class="min-w-0">${esc(r.date)} · ${esc(r.from)} → ${esc(r.to)}${r.note?' · '+esc(r.note):''}</span><span class="shrink-0 font-bold">${money(r.amount)} <button type="button" onclick="deleteRepayment('${esc(r.id)}')" class="ml-1 text-amber-300" aria-label="刪除還款紀錄">✕</button></span></div>`).join('')||'<div class="text-slate-400">暫無還款紀錄</div>';
 }
+
+function dateOnly(s){const d=new Date(s+'T12:00:00');return Number.isNaN(d.getTime())?null:d}
+function dateStr(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function nextOccurrence(date,frequency,anchorDay=null,anchorMonth=null){
+ const d=dateOnly(date);if(!d)throw new Error('週期日期無效');
+ if(frequency==='weekly'){d.setDate(d.getDate()+7);return dateStr(d)}
+ if(frequency==='monthly'||frequency==='yearly'){
+  const day=Number.isInteger(anchorDay)?anchorDay:d.getDate(),month=Number.isInteger(anchorMonth)?anchorMonth:d.getMonth(),year=d.getFullYear();
+  if(frequency==='monthly'){d.setDate(1);d.setMonth(d.getMonth()+1);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));}
+  else{d.setDate(1);d.setFullYear(year+1);d.setMonth(month);d.setDate(Math.min(day,new Date(d.getFullYear(),month+1,0).getDate()));}
+  return dateStr(d)
+ }
+ throw new Error('不支援嘅週期');
+}
+function materializeDueRecurring(today=ld()){
+ let created=0;
+ S.recurring.forEach(r=>{
+  if(r.paused)return;
+  let guard=0;
+  while(r.nextDue<=today&&(!r.endDate||r.nextDue<=r.endDate)&&guard++<500){
+   if(!S.planned.some(p=>p.recurringId===r.id&&p.dueDate===r.nextDue)){
+    S.planned.push({id:uid(),recurringId:r.id,dueDate:r.nextDue,type:r.type,group:r.group,payer:r.payer||null,amount:r.amount,categoryId:r.categoryId,subCategoryId:null,note:r.note||'',status:'planned'});
+    created++;
+   }
+   r.nextDue=nextOccurrence(r.nextDue,r.frequency,r.anchorDay,r.anchorMonth);
+  }
+  if(guard>=500)console.warn('週期交易追趕上限已到：',r.id);
+ });
+ return created;
+}
+function renderRecurring(){
+ const added=materializeDueRecurring();
+ if(added)save();
+ const freq={weekly:'每週',monthly:'每月',yearly:'每年'};
+ $('recurring-list').innerHTML=S.recurring.map(r=>`<div class="rounded-xl border border-slate-200 p-2 text-xs flex items-start justify-between gap-2"><div><b>${esc(r.note||cat(r.categoryId)?.name||'週期交易')}</b><div class="text-slate-500 mt-1">${freq[r.frequency]} · ${money(r.amount)} · 下次 ${esc(r.nextDue)}${r.endDate?' · 截止 '+esc(r.endDate):''}${r.paused?' · 已暫停':''}</div></div><div class="flex gap-1 shrink-0"><button type="button" class="underline" onclick="toggleRecurring('${esc(r.id)}')">${r.paused?'繼續':'暫停'}</button><button type="button" class="text-red-600 underline" onclick="removeRecurring('${esc(r.id)}')">刪除</button></div></div>`).join('')||'<div class="text-xs text-slate-400">尚未設定週期交易</div>';
+ const catName=id=>cat(id)?.name||'已封存分類';
+ $('planned-list').innerHTML=S.planned.filter(p=>p.status==='planned').sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).map(p=>`<div class="rounded-xl bg-amber-50 border border-amber-100 p-2 text-xs flex items-start justify-between gap-2"><div><b>${esc(p.note||catName(p.categoryId))}</b><div class="text-slate-600 mt-1">${esc(p.dueDate)} · ${esc(p.group)} · ${money(p.amount)} · ${esc(catName(p.categoryId))}</div></div><button type="button" class="shrink-0 bg-brand-600 text-white rounded-lg px-2 py-1" onclick="postPlanned('${esc(p.id)}')">確認入帳</button></div>`).join('')||'<div class="text-xs text-slate-400">目前沒有待確認交易</div>';
+}
+function addRecurring(){
+ const type=prompt('交易類型：輸入 expense（支出）或 income（收入）','expense');if(type===null)return;
+ if(!['expense','income'].includes(type))return toast('請輸入 expense 或 income',true);
+ const candidates=S.cats.filter(c=>c.type===type&&!c.parentId&&!c.archived);
+ if(!candidates.length)return toast('請先建立有效主分類',true);
+ const catOptions=candidates.map((c,i)=>i+1+'. '+c.name).join('\n');
+ const pick=Number(prompt('選擇主分類編號：\n'+catOptions,'1'));
+ if(!Number.isInteger(pick)||pick<1||pick>candidates.length)return;
+ const category=candidates[pick-1],amount=Number(prompt('每次金額：','0'));if(!Number.isFinite(amount)||amount<=0)return toast('金額必須大於 0',true);
+ const frequency=prompt('重複頻率：weekly（每週）、monthly（每月）、yearly（每年）','monthly');if(!['weekly','monthly','yearly'].includes(frequency))return toast('週期格式不正確',true);
+ const startDate=prompt('開始日期（YYYY-MM-DD）',ld());if(!startDate||!dateOnly(startDate)||dateStr(dateOnly(startDate))!==startDate)return toast('開始日期格式不正確',true);
+ const endInput=prompt('結束日期（YYYY-MM-DD；留空代表無限期）','');if(endInput!==null&&endInput!==''&&(!dateOnly(endInput)||dateStr(dateOnly(endInput))!==endInput||endInput<startDate))return toast('結束日期無效或早於開始日期',true);
+ const group=type==='expense'?(prompt('歸屬：共同 / Mrs Meow / Mr Meow','共同')):'Mrs Meow';if(!G.includes(group))return toast('歸屬不正確',true);
+ let payer=null;if(type==='expense'){payer=prompt('實際付款人：Mrs Meow 或 Mr Meow','Mrs Meow');if(!P.includes(payer))return toast('付款人不正確',true)}
+ const note=prompt('備註（可留空）',category.name)||category.name;
+ S.recurring.push({id:uid(),type,group,payer,amount:Math.round(amount*100)/100,categoryId:category.id,note,frequency,startDate,nextDue:startDate,anchorDay:dateOnly(startDate).getDate(),anchorMonth:dateOnly(startDate).getMonth(),endDate:endInput||null,paused:false});
+ if(save()){materializeDueRecurring();save();toast('週期交易已建立');renderSettings()}
+}
+function toggleRecurring(id){const r=S.recurring.find(x=>x.id===id);if(!r)return;r.paused=!r.paused;if(save())renderSettings()}
+function removeRecurring(id){const r=S.recurring.find(x=>x.id===id);if(!r)return;if(!confirm('刪除週期設定？已建立嘅待確認項目會保留。'))return;S.recurring=S.recurring.filter(x=>x.id!==id);if(save())renderSettings()}
+function postPlanned(id){
+ const p=S.planned.find(x=>x.id===id&&x.status==='planned');if(!p)return toast('呢筆待確認交易已處理',true);
+ if(!cat(p.categoryId)||cat(p.categoryId).archived)return toast('原分類已封存，請先還原分類再入帳',true);
+ if(S.tx.some(t=>t.recurringId===p.recurringId&&t.recurringDueDate===p.dueDate))return toast('已經入帳，避免重複記錄',true);
+ const tx={id:uid(),type:p.type,group:p.group,payer:p.type==='expense'?p.payer:null,amount:p.amount,categoryId:p.categoryId,subCategoryId:null,date:p.dueDate,note:p.note,recurringId:p.recurringId,recurringDueDate:p.dueDate};
+ if(p.type==='expense'){if(p.group==='共同')tx.shares={'Mrs Meow':Math.floor(Math.round(p.amount*100)/2)/100,'Mr Meow':(Math.round(p.amount*100)-Math.floor(Math.round(p.amount*100)/2))/100};else tx.shares={ 'Mrs Meow':p.group==='Mrs Meow'?p.amount:0,'Mr Meow':p.group==='Mr Meow'?p.amount:0};}
+ S.tx.push(tx);p.status='posted';
+ if(!save()){S.tx=S.tx.filter(t=>t.id!==tx.id);p.status='planned';return}
+ toast('已確認入帳');if(navigator.vibrate)navigator.vibrate(12);renderSettings()
+}
+
 function renderSettings(){
+ renderRecurring();
  const t=$('nc-type').value,p=$('nc-parent').value;
  $('nc-parent').innerHTML='<option value="">最上層 (主分類)</option>'+mains(t).map(c=>`<option value="${esc(c.id)}">${esc(c.name)} 下面 (子分類)</option>`).join('');
  $('nc-parent').value=p&&mains(t).some(c=>c.id===p)?p:'';
