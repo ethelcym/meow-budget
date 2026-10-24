@@ -76,6 +76,7 @@ test('baseline creates household tables, RLS, unique user membership, and restri
   assert.match(baseline, /ALTER TABLE public\.app_state ENABLE ROW LEVEL SECURITY/i);
   assert.match(baseline, /UNIQUE \(user_id\)/i);
   assert.match(baseline, /REVOKE ALL ON FUNCTION public\.join_household\(text\) FROM PUBLIC/i);
+  assert.match(baseline, /REVOKE ALL ON TABLE public\.households, public\.household_members, public\.app_state FROM anon/i);
   assert.doesNotMatch(baseline, /GRANT[^;]*UPDATE[^;]*app_state/i);
   assert.doesNotMatch(baseline, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
