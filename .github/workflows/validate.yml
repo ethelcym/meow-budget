@@ -25,4 +25,4 @@ jobs:
           PY
           node --check /tmp/meow-budget-inline.js
       - name: Run settlement model tests
-        run: node --test tests/shared-settlement.test.js
+        run: node --test tests/*.test.js
