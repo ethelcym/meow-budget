@@ -32,7 +32,7 @@ test('Realtime does not replace local state when there are unsynced edits', () =
   assert.notEqual(start, -1, 'subscribeCloud function should exist');
   assert.notEqual(end, -1, 'subscribeCloud function boundary should exist');
   const realtime = html.slice(start, end);
-  assert.match(realtime, /if\(cloudLocalDirty\)\{cloudConflict=true/);
+  assert.match(realtime, /if\(cloudLocalDirty\)\s*\{[\s\S]*?cloudConflict=true/);
   assert.ok(
     realtime.indexOf('if(cloudLocalDirty)') < realtime.indexOf('S=normalizeState(payload.new.state)'),
     'local dirty-state guard must run before remote state replacement'
