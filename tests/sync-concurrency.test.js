@@ -40,6 +40,16 @@ test('Realtime does not replace local state when there are unsynced edits', () =
   assert.match(realtime, /incomingRevision<=Number\(cloudRevision\|\|0\)/);
 });
 
+test('Realtime handles same-account devices and acknowledges identical in-flight saves', () => {
+  const start = html.indexOf('function subscribeCloud()');
+  const end = html.indexOf('async function signOutCloud()', start);
+  const realtime = html.slice(start, end);
+  assert.doesNotMatch(realtime, /payload\.new\.updated_by!==cloudUser\?\.id/);
+  assert.match(realtime, /JSON\.stringify\(incomingState\)===JSON\.stringify\(S\)/);
+  assert.match(realtime, /cloudRevision=incomingRevision\|\|cloudRevision/);
+  assert.match(realtime, /cloudConflict=true;setCloudStatus/);
+});
+
 test('revision migration adds a counter and contains no destructive state operations', () => {
   assert.match(migration, /ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1/i);
   assert.match(migration, /UPDATE public\.app_state/i);
