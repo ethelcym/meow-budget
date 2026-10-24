@@ -49,7 +49,7 @@ test('save RPC uses a fixed search path, explicit membership scope and authentic
   assert.match(migration, /IF auth\.uid\(\) IS NULL THEN/i);
   assert.match(migration, /SECURITY DEFINER/i);
   assert.match(migration, /SET search_path = pg_catalog, public/i);
-  assert.match(migration, /FROM public\.household_members hm/i);
+  assert.match(migration, /FROM public\\.household_members AS hm/i);
   assert.match(migration, /WHERE hm\.user_id = auth\.uid\(\)/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM PUBLIC/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM anon/i);
