@@ -1,32 +1,52 @@
-# Supabase sync and security review (static review)
+# Supabase sync and security review
 
-Status: **review started; production safety is not yet verified**. This document records only what can be confirmed from the application code and repository. No live database schema, RLS policies, functions, or data were changed.
+Status: **repository review updated; production database and authorization behavior remain unverified**. No live database schema, policies, functions, or data were changed during this review.
 
-## Confirmed from application code
+## Confirmed from current development code
 
-- The browser uses the Supabase project URL and a publishable client key. No `service_role` key is present in the inspected `index.html`.
-- The client reads/writes `public.app_state` and expects columns `household_id`, `state`, and `updated_by`.
-- The client reads `household_members.household_id` filtered by `user_id`.
-- Household creation/joining calls RPCs `create_household()` and `join_household(p_invite_code)`.
-- Realtime subscription listens for `UPDATE` events on `app_state` filtered by household ID.
-- Local unsynced edits trigger a client-side conflict warning when a remote update is observed.
-- Cloud writes upsert the whole `state` JSON blob. This is last-write-wins without a server-side version check; the client-side guard cannot prevent simultaneous writes racing before a realtime event arrives.
-- No schema/migration or RLS SQL file for these tables/RPCs was found in the inspected repository paths. The live Supabase dashboard/policies are not accessible from this repository review.
+- The browser uses the Supabase project URL and a publishable client key. The reviewed `index.html` does not contain a service-role key.
+- The client reads `public.app_state` and expects `household_id`, `state`, `updated_by`, `updated_at`, and now `revision`.
+- The client reads `household_members.household_id` filtered by the signed-in `user_id`.
+- Household creation/joining calls `create_household()` and `join_household(p_invite_code)`.
+- The development client uses `save_app_state(p_expected_revision, p_state)` for normal saves rather than an unconditional whole-state upsert. The migration performs an atomic revision compare-and-swap and increments the revision only when the expected revision matches.
+- On a revision conflict, the client retains its local state, displays a warning, and pauses automatic sync. It does not automatically merge the two versions.
+- The client Realtime callback currently ignores updates whose `updated_by` matches the signed-in user. This can suppress updates from another device signed into the same account. This same-account multi-device behavior remains a known test item; do not claim instant cross-device sync is fully verified.
+- Household creation/joining and first-time missing-state bootstrap still use an upsert path to initialize `app_state`. That bootstrap is separate from revision-checked normal saves and can race if multiple devices initialize an absent state row at the same time.
+- The repository includes an incremental revision migration, but not a complete baseline schema migration for `households`, `household_members`, `app_state`, all RLS policies, and household creation/join functions. A fresh isolated project must not run the revision migration alone.
 
-## Must be verified in Supabase before real shared use
+## Migration review: `202610240001_add_app_state_revision.sql`
 
-1. RLS is enabled on `households`, `household_members`, and `app_state`.
-2. A signed-in user can read household data only for households where they are a member.
-3. Insert/update/delete of `app_state` is restricted to members of the exact `household_id`; a client-supplied household ID alone is not sufficient authorization.
-4. `household_members` policies prevent users from adding themselves to arbitrary households or changing another member's `user_id`/role.
-5. `create_household` and `join_household` are reviewed for SECURITY DEFINER use, fixed `search_path`, authenticated-only execution grants, invite-code entropy/expiry/rate limiting, and membership checks. The join function must not leak household IDs or membership information to unauthorized users.
-6. Realtime publication and SELECT policies do not expose another household's `app_state`.
-7. Only the publishable/anon key is shipped to the browser; no secret/service-role key is ever placed in client code.
+The migration:
+- adds `revision bigint NOT NULL DEFAULT 1` if the column is absent;
+- defines `save_app_state(bigint, jsonb)` with `SECURITY INVOKER` and `SET search_path = public`;
+- rejects unauthenticated calls, invalid expected revisions, and null state;
+- updates only a row belonging to a household in which `auth.uid()` is a member and only when its current revision equals the expected revision;
+- increments and returns the revision, raising `REVISION_CONFLICT` when no row matches;
+- revokes execution from `PUBLIC` and `anon`, then grants it to `authenticated`.
 
-## Required sync correctness change before production
+This is a static code review, not proof that PostgreSQL runtime behavior, existing grants, RLS policies, or the full app flow are secure. The migration depends on the existing table structure and applicable RLS policies.
 
-Move from unconditional whole-blob upserts to server-enforced optimistic concurrency (for example, a version/revision column and an RPC that updates only when the expected revision matches), or a similarly atomic server-side strategy. On conflict, retain both versions and require an explicit merge/recovery path. Do not rely on realtime notifications alone to prevent lost updates.
+## Must be verified in Supabase before production release
+
+1. RLS is enabled on `households`, `household_members`, and `app_state`; record whether RLS is forced and whether table grants are appropriately restricted.
+2. A signed-in user can read only households and app state where they are a member.
+3. Inserts/updates to `app_state` are restricted to members of the exact household; a client-supplied household ID alone is not authorization.
+4. `household_members` policies and table grants prevent users from adding themselves to arbitrary households or changing another member's `user_id`/role.
+5. `create_household`, `join_household`, and `is_household_member` are checked for function owner, SECURITY DEFINER/INVOKER mode, fixed `search_path`, execute grants, membership checks, and invite-code protections.
+6. Realtime publication and SELECT policies do not expose another household's state.
+7. The revision migration is applied only to the intended test project first, then validated using two test household accounts and one unrelated account.
+8. The same-account/two-device Realtime case is tested, alongside stale-revision conflicts and local backup/recovery.
+9. Restore from a backup is tested before a production migration is considered.
 
 ## Safe verification method
 
-Use Supabase SQL Editor with a read-only inspection first. Record the actual table definitions, RLS status, policies, grants, RPC definitions and function settings. Then test with two separate authenticated household users and a third unrelated user. Do not disable RLS or use a service-role key in the browser. Do not apply schema changes until the existing schema and policies have been reviewed and backed up.
+Use the read-only catalog inspection script at `supabase/diagnostics/read_only_security_audit.sql` in the Supabase SQL Editor. It contains SELECT-only catalog queries; inspect the results before planning any write operation. Verify the target Project Reference ID independently in the dashboard. Do not disable RLS or use a service-role key in browser code.
+
+## Release blockers
+
+- The revision migration has **not** been applied to Supabase and the development client has not been validated against a dedicated test project.
+- The repository lacks a complete reviewed baseline schema/policy migration for provisioning an empty project.
+- Actual RLS policies, grants, RPC behavior, Realtime access, and backup restoration have not been runtime-tested.
+- Same-account multi-device Realtime behavior and the first-time state-bootstrap race still need explicit verification.
+
+Do not merge or deploy until these blockers are resolved and the user explicitly approves the release step.
