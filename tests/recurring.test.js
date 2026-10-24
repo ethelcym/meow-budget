@@ -8,8 +8,8 @@ function extractFunction(name) {
   const marker = 'function ' + name + '(';
   const start = html.indexOf(marker);
   assert.notEqual(start, -1, 'missing function ' + name);
-  const next = html.indexOf('\\nfunction ', start + marker.length);
-  return html.slice(start, next < 0 ? html.indexOf('\\n}', start) + 2 : next);
+  const next = html.indexOf('\nfunction ', start + marker.length);
+  return html.slice(start, next < 0 ? html.indexOf('\n}', start) + 2 : next);
 }
 function contextFor(state, today) {
   const context = {
@@ -22,7 +22,7 @@ function contextFor(state, today) {
   context.dateOnly = s => { const d = new Date(s + 'T12:00:00'); return Number.isNaN(d.getTime()) ? null : d; };
   context.dateStr = d => d.getFullYear() + '-' + context.pad(d.getMonth()+1) + '-' + context.pad(d.getDate());
   vm.createContext(context);
-  vm.runInContext(extractFunction('nextOccurrence') + '\\n' + extractFunction('materializeDueRecurring'), context);
+  vm.runInContext(extractFunction('nextOccurrence') + '\n' + extractFunction('materializeDueRecurring'), context);
   return context;
 }
 
