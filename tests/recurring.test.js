@@ -196,7 +196,7 @@ function integrationContext(state, extra={}) {
     console
   };
   vm.createContext(context);
-  const names=['spent','currentSettlement','postPlanned','submitTx','editTx','delTx','normalizeState','showBackup','importBackup','load'];
+  const names=['spent','currentSettlement','postPlanned','submitTx','editTx','delTx','normalizeState','showBackup','importBackup'];
   const code=names.map(n=>{try{return extractFunction(n)}catch(e){return ''}}).join('\n');
   vm.runInContext(code,context);
   return context;
