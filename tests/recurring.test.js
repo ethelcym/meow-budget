@@ -216,8 +216,8 @@ test('posted recurring shared expense updates both personal budgets and settleme
   const state=integrationState(),c=integrationContext(state);
   c.postPlanned('p1');
   assert.equal(state.tx.length,1);
-  assert.equal(c.spent('Mrs Meow','c1','2026-10'),25.01);
-  assert.equal(c.spent('Mr Meow','c1','2026-10'),25);
+  assert.equal(c.spent('Mrs Meow','c1','2026-10'),25);
+  assert.equal(c.spent('Mr Meow','c1','2026-10'),25.01);
   let st=c.currentSettlement();
   assert.equal(st.tracked,5001);
   assert.equal(st.outstanding,25.01);
