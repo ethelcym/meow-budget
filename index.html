@@ -285,7 +285,7 @@ function scheduleCloudSave(){
   const snapshot=JSON.stringify(S),expectedRevision=cloudRevision;
   try{
    if(!Number.isInteger(expectedRevision)||expectedRevision<1)throw new Error('雲端版本尚未載入，已停止寫入以保護資料。請重新整理後再試。');
-   const {data,error}=await cloudClient.rpc('save_app_state',{p_expected_revision:expectedRevision,p_state:JSON.parse(snapshot)});
+   const {data,error}=await cloudClient.rpc('save_app_state',{p_household_id:householdId,p_expected_revision:expectedRevision,p_state:JSON.parse(snapshot)});
    if(error){
     const message=String(error.message||error);
     if(/REVISION_CONFLICT|版本衝突|STALE_REVISION/i.test(message)){
