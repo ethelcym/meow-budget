@@ -7,6 +7,7 @@ ALTER TABLE public.app_state
   ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1;
 
 CREATE OR REPLACE FUNCTION public.save_app_state(
+  p_household_id uuid,
   p_expected_revision bigint,
   p_state jsonb
 )
@@ -38,10 +39,12 @@ BEGIN
          updated_by = auth.uid(),
          updated_at = now(),
          revision = a.revision + 1
-   WHERE a.household_id IN (
-           SELECT hm.household_id
+   WHERE a.household_id = p_household_id
+     AND EXISTS (
+           SELECT 1
              FROM public.household_members AS hm
-            WHERE hm.user_id = auth.uid()
+            WHERE hm.household_id = a.household_id
+              AND hm.user_id = auth.uid()
          )
      AND a.revision = p_expected_revision
   RETURNING a.revision INTO next_revision;
@@ -61,6 +64,6 @@ REVOKE UPDATE ON TABLE public.app_state FROM PUBLIC;
 REVOKE UPDATE ON TABLE public.app_state FROM anon;
 REVOKE UPDATE ON TABLE public.app_state FROM authenticated;
 
-REVOKE ALL ON FUNCTION public.save_app_state(bigint, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.save_app_state(uuid, bigint, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.save_app_state(bigint, jsonb) FROM anon;
 GRANT EXECUTE ON FUNCTION public.save_app_state(bigint, jsonb) TO authenticated;
