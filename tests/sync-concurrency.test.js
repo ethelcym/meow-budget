@@ -45,16 +45,16 @@ test('migration adds a non-null revision counter without destructive state opera
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM public\.app_state/i);
 });
 
-test('save RPC uses invoker rights, fixed search path and authenticated member scoping', () => {
+test('save RPC uses a fixed search path, explicit membership scope and authenticated-only execution', () => {
   assert.match(migration, /IF auth\.uid\(\) IS NULL THEN/i);
-  assert.match(migration, /SECURITY INVOKER/i);
+  assert.match(migration, /SECURITY DEFINER/i);
   assert.match(migration, /SET search_path = public/i);
   assert.match(migration, /FROM public\.household_members hm/i);
   assert.match(migration, /WHERE hm\.user_id = auth\.uid\(\)/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM PUBLIC/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM anon/i);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.save_app_state\(bigint, jsonb\) TO authenticated/i);
-  assert.doesNotMatch(migration, /SECURITY DEFINER/i);
+  assert.match(migration, /REVOKE UPDATE ON TABLE public\\.app_state FROM authenticated/i);
 });
 
 test('migration rejects invalid expected revisions and null state', () => {
@@ -66,4 +66,19 @@ test('migration rejects invalid expected revisions and null state', () => {
 
 test('browser source does not include a service-role secret key', () => {
   assert.doesNotMatch(html, /service_role\s*[:=]\s*['"][^'"]+['"]/i);
+});
+
+test('baseline migration creates the expected household tables with RLS and no direct state UPDATE grant', () => {
+  const baseline = fs.readFileSync(
+    'supabase/migrations/202610240000_initial_shared_household_schema.sql',
+    'utf8'
+  );
+  assert.match(baseline, /CREATE TABLE public\.households/i);
+  assert.match(baseline, /CREATE TABLE public\.household_members/i);
+  assert.match(baseline, /CREATE TABLE public\.app_state/i);
+  assert.match(baseline, /ALTER TABLE public\.app_state ENABLE ROW LEVEL SECURITY/i);
+  assert.match(baseline, /UNIQUE \(user_id\)/i);
+  assert.match(baseline, /REVOKE ALL ON FUNCTION public\.join_household\(text\) FROM PUBLIC/i);
+  assert.doesNotMatch(baseline, /GRANT[^;]*UPDATE[^;]*app_state/i);
+  assert.doesNotMatch(baseline, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
