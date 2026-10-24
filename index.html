@@ -246,7 +246,7 @@ async function createHousehold(){
   if(error)throw error;
   householdId=data;
   const {error:stateError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
-  if(stateError)throw stateError;
+  if(stateError)throw stateError;cloudLocalDirty=false;cloudConflict=false;
   hideAuth();subscribeCloud();setCloudStatus('已建立共用帳本；請把邀請碼分享給另一位使用者');
   const {data:hh,error:hhErr}=await cloudClient.from('households').select('invite_code').eq('id',householdId).single();
   if(hhErr)throw hhErr;
@@ -262,16 +262,16 @@ async function joinHousehold(){
   if(error)throw error;householdId=data;
   const {data:remote,error:readError}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
   if(readError)throw readError;
-  if(remote&&remote.state){S=normalizeState(remote.state);localStorage.setItem(K,JSON.stringify(S))}
-  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
+  if(remote&&remote.state){S=normalizeState(remote.state);localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
+  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;cloudLocalDirty=false;cloudConflict=false}
   hideAuth();subscribeCloud();setCloudStatus('已加入共用帳本並同步');render();
  }catch(e){authMessage('加入失敗：'+e.message)}
 }
 async function pullCloudState(){
  const {data,error}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
  if(error)throw error;
- if(data&&data.state){S=normalizeState(data.state);localStorage.setItem(K,JSON.stringify(S))}
- else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError}
+ if(data&&data.state){S=normalizeState(data.state);localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
+ else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;cloudLocalDirty=false;cloudConflict=false}
 }
 function scheduleCloudSave(){
  if(!cloudClient||!cloudUser||!householdId||cloudConflict)return;
