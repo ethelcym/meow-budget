@@ -382,7 +382,11 @@ function submitTx(){
  if(U.saving)return;
  U.saving=true;
  const wasEdit=!!U.editId,oldTx=S.tx;
- if(wasEdit)S.tx=S.tx.map(t=>t.id===U.editId?tx:t);else S.tx.unshift(tx);
+ if(wasEdit){
+  const previous=oldTx.find(t=>t.id===U.editId);
+  if(previous&&previous.recurringId){tx.recurringId=previous.recurringId;tx.recurringDueDate=previous.recurringDueDate}
+  S.tx=S.tx.map(t=>t.id===U.editId?tx:t);
+ }else S.tx.unshift(tx);
  if(!save()){S.tx=oldTx;U.saving=false;return}
  const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
  let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
@@ -412,7 +416,17 @@ function renderRecords(){
  $('rec-list').innerHTML=html;
 }
 function editTx(id){const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.group==='共同'&&(!t.shares||Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001)?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
-function delTx(id){if(!confirm('確定刪除此筆記帳？'))return;S.tx=S.tx.filter(t=>t.id!==id);if(save()){toast('紀錄已刪除');renderRecords()}}
+function delTx(id){
+ if(!confirm('確定刪除此筆記帳？'))return;
+ const oldTx=S.tx,oldPlanned=S.planned;
+ const removed=oldTx.find(t=>t.id===id);
+ S.tx=oldTx.filter(t=>t.id!==id);
+ if(removed&&removed.recurringId){
+  S.planned=oldPlanned.map(p=>p.recurringId===removed.recurringId&&p.dueDate===removed.recurringDueDate?{...p,status:'planned'}:p);
+ }
+ if(!save()){S.tx=oldTx;S.planned=oldPlanned;return}
+ toast('紀錄已刪除');renderRecords()
+}
 function currentSettlement(){
  const balance={'Mrs Meow':0,'Mr Meow':0};let tracked=0,legacy=0,repaid=0;
  S.tx.filter(t=>t.type==='expense').forEach(t=>{
