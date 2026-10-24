@@ -193,7 +193,7 @@ let S=load();
 /* 雲端設定：請在此填入 Supabase Project URL 及 anon/publishable key。
    只可使用 anon/publishable key；絕不可放 service_role key。 */
 const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'};
-let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null,cloudLocalDirty=false,cloudConflict=false,cloudSaveQueued=false;
+let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null,cloudLocalDirty=false,cloudConflict=false,cloudSaveQueued=false,cloudRevision=null;
 
 
 const cloudReady = () => !!(
@@ -260,18 +260,18 @@ async function joinHousehold(){
  try{
   const {data,error}=await cloudClient.rpc('join_household',{p_invite_code:code});
   if(error)throw error;householdId=data;
-  const {data:remote,error:readError}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
+  const {data:remote,error:readError}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).maybeSingle();
   if(readError)throw readError;
-  if(remote&&remote.state){S=normalizeState(remote.state);localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
-  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;cloudLocalDirty=false;cloudConflict=false}
+  if(remote&&remote.state){S=normalizeState(remote.state);cloudRevision=Number(remote.revision)||1;localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
+  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:createdError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(createdError)throw createdError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
   hideAuth();subscribeCloud();setCloudStatus('已加入共用帳本並同步');render();
  }catch(e){authMessage('加入失敗：'+e.message)}
 }
 async function pullCloudState(){
- const {data,error}=await cloudClient.from('app_state').select('state').eq('household_id',householdId).maybeSingle();
+ const {data,error}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).maybeSingle();
  if(error)throw error;
- if(data&&data.state){S=normalizeState(data.state);localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
- else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;cloudLocalDirty=false;cloudConflict=false}
+ if(data&&data.state){S=normalizeState(data.state);cloudRevision=Number(data.revision)||1;localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
+ else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:readError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(readError)throw readError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
 }
 function scheduleCloudSave(){
  if(!cloudClient||!cloudUser||!householdId||cloudConflict)return;
@@ -279,10 +279,20 @@ function scheduleCloudSave(){
   if(cloudConflict)return;
   if(cloudBusy){cloudSaveQueued=true;return}
   cloudBusy=true;cloudSaveQueued=false;
-  const snapshot=JSON.stringify(S);
+  const snapshot=JSON.stringify(S),expectedRevision=cloudRevision;
   try{
-   const {error}=await cloudClient.from('app_state').upsert({household_id:householdId,state:JSON.parse(snapshot),updated_by:cloudUser.id});
-   if(error)throw error;
+   if(!Number.isInteger(expectedRevision)||expectedRevision<1)throw new Error('雲端版本尚未載入，已停止寫入以保護資料。請重新整理後再試。');
+   const {data,error}=await cloudClient.rpc('save_app_state',{p_expected_revision:expectedRevision,p_state:JSON.parse(snapshot)});
+   if(error){
+    const message=String(error.message||error);
+    if(/REVISION_CONFLICT|版本衝突|STALE_REVISION/i.test(message)){
+     cloudConflict=true;cloudLocalDirty=true;
+     setCloudStatus('偵測到雲端版本已更新。本機修改已保留，已暫停自動同步；請先匯出本機備份，再重新載入雲端資料處理衝突。',false);
+     return;
+    }
+    throw error;
+   }
+   cloudRevision=Number(data);
    if(JSON.stringify(S)===snapshot){cloudLocalDirty=false;setCloudStatus('雲端已同步 · '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}))}
    else{cloudLocalDirty=true;cloudSaveQueued=true}
   }catch(e){cloudLocalDirty=true;setCloudStatus('雲端同步失敗；本機仍有暫存。請勿清除網站資料。',false);console.error(e)}
@@ -294,8 +304,10 @@ function subscribeCloud(){
  if(cloudChannel)cloudClient.removeChannel(cloudChannel);
  cloudChannel=cloudClient.channel('household-state-'+householdId).on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_state',filter:'household_id=eq.'+householdId},async payload=>{
   if(payload.new&&payload.new.updated_by!==cloudUser?.id&&payload.new.state){
+   const incomingRevision=Number(payload.new.revision)||0;
+   if(incomingRevision&&incomingRevision<=Number(cloudRevision||0))return;
    if(cloudLocalDirty){cloudConflict=true;setCloudStatus('偵測到另一部裝置更新，而本機亦有未確認修改。已暫停自動覆寫；請先備份兩邊資料。',false);return}
-   try{S=normalizeState(payload.new.state);localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
+   try{S=normalizeState(payload.new.state);cloudRevision=incomingRevision||cloudRevision;localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
    catch(e){console.error('雲端資料格式不正確',e)}
   }
  }).subscribe();
