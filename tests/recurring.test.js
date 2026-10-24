@@ -263,6 +263,8 @@ test('editing a posted recurring transaction preserves its recurrence identity',
   assert.equal(state.tx[0].recurringId,'r1');
   assert.equal(state.tx[0].recurringDueDate,'2026-10-01');
   assert.equal(c.currentSettlement().tracked,6000);
+  assert.equal(c.spent('Mrs Meow','c1','2026-10'),30);
+  assert.equal(c.spent('Mr Meow','c1','2026-10'),30);
 });
 
 test('JSON backup round-trip and normalized reload retain recurring rules and planned items', () => {
@@ -286,4 +288,21 @@ test('import validation rejects malformed planned references without replacing c
   c.importBackup();
   assert.equal(state.planned[0].id,'p1');
   assert.ok(c.calls.toasts.some(x=>x.warn));
+});
+
+test('successful JSON import replaces state and keeps recurrence, planned item and repayment data', () => {
+  const current=integrationState();
+  const c=integrationContext(current);
+  const imported=integrationState();
+  imported.recurring[0].amount=75;
+  imported.planned[0].amount=75;
+  imported.repayments=[{id:'rep1',from:'Mr Meow',to:'Mrs Meow',amount:5,date:'2026-10-20',note:'partial'}];
+  c.$('bk').value=JSON.stringify(imported);
+  c.importBackup();
+  assert.equal(c.S.recurring[0].amount,75);
+  assert.equal(c.S.planned[0].amount,75);
+  assert.equal(c.S.planned[0].status,'planned');
+  assert.equal(c.S.repayments[0].id,'rep1');
+  assert.equal(c.calls.saves,1);
+  assert.ok(c.calls.toasts.some(x=>x.msg==='匯入成功'));
 });
