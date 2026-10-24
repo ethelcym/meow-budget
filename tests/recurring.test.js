@@ -8,23 +8,8 @@ function extractFunction(name) {
   const marker = 'function ' + name + '(';
   const start = html.indexOf(marker);
   assert.notEqual(start, -1, 'missing function ' + name);
-  const brace = html.indexOf('{', start);
-  let depth = 0, quote = null, escape = false, template = false;
-  for (let i = brace; i < html.length; i++) {
-    const c = html[i];
-    if (quote) {
-      if (escape) escape = false;
-      else if (c === '\\\\') escape = true;
-      else if (c === quote) quote = null;
-      continue;
-    }
-    if (c === "'" || c === '"') { quote = c; continue; }
-    if (c === '`') { template = !template; continue; }
-    if (template) continue;
-    if (c === '{') depth++;
-    if (c === '}' && --depth === 0) return html.slice(start, i + 1);
-  }
-  throw new Error('could not parse function ' + name);
+  const next = html.indexOf('\\nfunction ', start + marker.length);
+  return html.slice(start, next < 0 ? html.indexOf('\\n}', start) + 2 : next);
 }
 function contextFor(state, today) {
   const context = {
