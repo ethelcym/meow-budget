@@ -7,9 +7,13 @@ const migration = fs.readFileSync(
   'supabase/migrations/202610240001_add_app_state_revision.sql',
   'utf8'
 );
+const baseline = fs.readFileSync(
+  'supabase/migrations/202610240000_initial_shared_household_schema.sql',
+  'utf8'
+);
 
-test('sync client uses revision-checked RPC instead of unconditional state upsert', () => {
-  assert.match(html, /rpc\('save_app_state',\s*\{p_expected_revision:expectedRevision,p_state:JSON\.parse\(snapshot\)\}\)/);
+test('sync client uses household-scoped revision-checked RPC instead of unconditional state upsert', () => {
+  assert.match(html, /rpc\('save_app_state',\s*\{p_household_id:householdId,p_expected_revision:expectedRevision,p_state:JSON\.parse\(snapshot\)\}\)/);
   assert.match(html, /select\('state,revision'\)/);
   assert.match(html, /cloudRevision=Number\(data\)/);
   assert.doesNotMatch(html, /from\('app_state'\)\.upsert\(\{household_id:householdId,state:JSON\.parse\(snapshot\)/);
@@ -36,25 +40,26 @@ test('Realtime does not replace local state when there are unsynced edits', () =
   assert.match(realtime, /incomingRevision<=Number\(cloudRevision\|\|0\)/);
 });
 
-test('migration adds a non-null revision counter without destructive state operations', () => {
+test('revision migration adds a counter and contains no destructive state operations', () => {
   assert.match(migration, /ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1/i);
   assert.match(migration, /UPDATE public\.app_state/i);
-  assert.match(migration, /revision = revision \+ 1/i);
-  assert.match(migration, /AND revision = p_expected_revision/i);
+  assert.match(migration, /revision = a\.revision \+ 1/i);
+  assert.match(migration, /a\.revision = p_expected_revision/i);
   assert.match(migration, /RAISE EXCEPTION 'REVISION_CONFLICT'/i);
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM public\.app_state/i);
 });
 
-test('save RPC uses a fixed search path, explicit membership scope and authenticated-only execution', () => {
-  assert.match(migration, /IF auth\.uid\(\) IS NULL THEN/i);
+test('save RPC is household-scoped and uses a fixed search path with restricted execution', () => {
+  assert.match(migration, /p_household_id uuid/i);
   assert.match(migration, /SECURITY DEFINER/i);
   assert.match(migration, /SET search_path = pg_catalog, public/i);
-  assert.match(migration, /FROM public\\.household_members AS hm/i);
-  assert.match(migration, /WHERE hm\.user_id = auth\.uid\(\)/i);
-  assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM PUBLIC/i);
-  assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM anon/i);
-  assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.save_app_state\(bigint, jsonb\) TO authenticated/i);
-  assert.match(migration, /REVOKE UPDATE ON TABLE public\\.app_state FROM authenticated/i);
+  assert.match(migration, /a\.household_id = p_household_id/i);
+  assert.match(migration, /hm\.household_id = a\.household_id/i);
+  assert.match(migration, /hm\.user_id = auth\.uid\(\)/i);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) FROM PUBLIC/i);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) FROM anon/i);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) TO authenticated/i);
+  assert.match(migration, /REVOKE UPDATE ON TABLE public\.app_state FROM authenticated/i);
 });
 
 test('migration rejects invalid expected revisions and null state', () => {
@@ -64,15 +69,7 @@ test('migration rejects invalid expected revisions and null state', () => {
   assert.match(migration, /RAISE EXCEPTION 'INVALID_STATE'/i);
 });
 
-test('browser source does not include a service-role secret key', () => {
-  assert.doesNotMatch(html, /service_role\s*[:=]\s*['"][^'"]+['"]/i);
-});
-
-test('baseline migration creates the expected household tables with RLS and no direct state UPDATE grant', () => {
-  const baseline = fs.readFileSync(
-    'supabase/migrations/202610240000_initial_shared_household_schema.sql',
-    'utf8'
-  );
+test('baseline creates household tables, RLS, unique user membership, and restricted RPC grants', () => {
   assert.match(baseline, /CREATE TABLE public\.households/i);
   assert.match(baseline, /CREATE TABLE public\.household_members/i);
   assert.match(baseline, /CREATE TABLE public\.app_state/i);
@@ -81,4 +78,8 @@ test('baseline migration creates the expected household tables with RLS and no d
   assert.match(baseline, /REVOKE ALL ON FUNCTION public\.join_household\(text\) FROM PUBLIC/i);
   assert.doesNotMatch(baseline, /GRANT[^;]*UPDATE[^;]*app_state/i);
   assert.doesNotMatch(baseline, /DROP TABLE|TRUNCATE|DELETE FROM/i);
+});
+
+test('browser source does not include a service-role secret key', () => {
+  assert.doesNotMatch(html, /service_role\s*[:=]\s*['"][^'"]+['"]/i);
 });
