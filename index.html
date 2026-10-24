@@ -306,10 +306,21 @@ function subscribeCloud(){
  if(!cloudClient||!householdId)return;
  if(cloudChannel)cloudClient.removeChannel(cloudChannel);
  cloudChannel=cloudClient.channel('household-state-'+householdId).on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_state',filter:'household_id=eq.'+householdId},async payload=>{
-  if(payload.new&&payload.new.updated_by!==cloudUser?.id&&payload.new.state){
+  if(payload.new&&payload.new.state){
    const incomingRevision=Number(payload.new.revision)||0;
    if(incomingRevision&&incomingRevision<=Number(cloudRevision||0))return;
-   if(cloudLocalDirty){cloudConflict=true;setCloudStatus('偵測到另一部裝置更新，而本機亦有未確認修改。已暫停自動覆寫；請先備份兩邊資料。',false);return}
+   if(cloudLocalDirty){
+    // A same-account device can receive its own save event before the RPC response.
+    // Treat an identical state as an acknowledgement, not as a competing edit.
+    try{
+     const incomingState=normalizeState(payload.new.state);
+     if(JSON.stringify(incomingState)===JSON.stringify(S)){
+      cloudRevision=incomingRevision||cloudRevision;
+      return;
+     }
+    }catch(e){console.error('雲端資料格式不正確',e)}
+    cloudConflict=true;setCloudStatus('偵測到另一部裝置更新，而本機亦有未確認修改。已暫停自動覆寫；請先備份兩邊資料。',false);return
+   }
    try{S=normalizeState(payload.new.state);cloudRevision=incomingRevision||cloudRevision;localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新')}
    catch(e){console.error('雲端資料格式不正確',e)}
   }
