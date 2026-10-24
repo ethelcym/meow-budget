@@ -192,7 +192,8 @@ let S=load();
 
 /* 雲端設定：請在此填入 Supabase Project URL 及 anon/publishable key。
    只可使用 anon/publishable key；絕不可放 service_role key。 */
-const CLOUD_CONFIG={url:'https://hennrsqbxvrwmdizdnzg.supabase.co',anonKey:'sb_publishable_fJoM2Fcb-fmYnP6XU0KObA_n2Nj-ven'};
+/* ISOLATED ACCEPTANCE TEST ONLY: do not merge this config into production. */
+const CLOUD_CONFIG={url:'https://kixnyvgqtznjzdrvbweb.supabase.co',anonKey:'sb_publishable_mnJnmG3kx90oc6BXXwcu0g_B-Qtu36r'};
 let cloudClient=null,cloudUser=null,householdId=null,cloudTimer=null,cloudBusy=false,cloudChannel=null,cloudLocalDirty=false,cloudConflict=false,cloudSaveQueued=false,cloudRevision=null;
 
 
