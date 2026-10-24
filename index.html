@@ -453,12 +453,12 @@ function renderReports(){
 
 function dateOnly(s){const d=new Date(s+'T12:00:00');return Number.isNaN(d.getTime())?null:d}
 function dateStr(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
-function nextOccurrence(date,frequency){
+function nextOccurrence(date,frequency,anchorDay=null,anchorMonth=null){
  const d=dateOnly(date);if(!d)throw new Error('週期日期無效');
  if(frequency==='weekly'){d.setDate(d.getDate()+7);return dateStr(d)}
  if(frequency==='monthly'||frequency==='yearly'){
-  const day=d.getDate(),month=d.getMonth(),year=d.getFullYear();
-  if(frequency==='monthly'){d.setDate(1);d.setMonth(month+1);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));}
+  const day=Number.isInteger(anchorDay)?anchorDay:d.getDate(),month=Number.isInteger(anchorMonth)?anchorMonth:d.getMonth(),year=d.getFullYear();
+  if(frequency==='monthly'){d.setDate(1);d.setMonth(d.getMonth()+1);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));}
   else{d.setDate(1);d.setFullYear(year+1);d.setMonth(month);d.setDate(Math.min(day,new Date(d.getFullYear(),month+1,0).getDate()));}
   return dateStr(d)
  }
@@ -474,7 +474,7 @@ function materializeDueRecurring(today=ld()){
     S.planned.push({id:uid(),recurringId:r.id,dueDate:r.nextDue,type:r.type,group:r.group,payer:r.payer||null,amount:r.amount,categoryId:r.categoryId,subCategoryId:null,note:r.note||'',status:'planned'});
     created++;
    }
-   r.nextDue=nextOccurrence(r.nextDue,r.frequency);
+   r.nextDue=nextOccurrence(r.nextDue,r.frequency,r.anchorDay,r.anchorMonth);
   }
   if(guard>=500)console.warn('週期交易追趕上限已到：',r.id);
  });
@@ -503,7 +503,7 @@ function addRecurring(){
  const group=type==='expense'?(prompt('歸屬：共同 / Mrs Meow / Mr Meow','共同')):'Mrs Meow';if(!G.includes(group))return toast('歸屬不正確',true);
  let payer=null;if(type==='expense'){payer=prompt('實際付款人：Mrs Meow 或 Mr Meow','Mrs Meow');if(!P.includes(payer))return toast('付款人不正確',true)}
  const note=prompt('備註（可留空）',category.name)||category.name;
- S.recurring.push({id:uid(),type,group,payer,amount:Math.round(amount*100)/100,categoryId:category.id,note,frequency,startDate,nextDue:startDate,endDate:endInput||null,paused:false});
+ S.recurring.push({id:uid(),type,group,payer,amount:Math.round(amount*100)/100,categoryId:category.id,note,frequency,startDate,nextDue:startDate,anchorDay:dateOnly(startDate).getDate(),anchorMonth:dateOnly(startDate).getMonth(),endDate:endInput||null,paused:false});
  if(save()){materializeDueRecurring();save();toast('週期交易已建立');renderSettings()}
 }
 function toggleRecurring(id){const r=S.recurring.find(x=>x.id===id);if(!r)return;r.paused=!r.paused;if(save())renderSettings()}
