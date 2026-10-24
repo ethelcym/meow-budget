@@ -19,9 +19,24 @@ test('stale revision is treated as a conflict and local changes are retained', (
   assert.match(html, /REVISION_CONFLICT/);
   assert.match(html, /cloudConflict=true;cloudLocalDirty=true/);
   assert.match(html, /已暫停自動同步/);
+  assert.match(html, /本機修改已保留/);
 });
 
-test('migration adds a non-null revision counter without replacing existing state', () => {
+test('Realtime does not replace local state when there are unsynced edits', () => {
+  const start = html.indexOf('function subscribeCloud()');
+  const end = html.indexOf('async function signOutCloud()', start);
+  assert.notEqual(start, -1, 'subscribeCloud function should exist');
+  assert.notEqual(end, -1, 'subscribeCloud function boundary should exist');
+  const realtime = html.slice(start, end);
+  assert.match(realtime, /if\(cloudLocalDirty\)\{cloudConflict=true/);
+  assert.ok(
+    realtime.indexOf('if(cloudLocalDirty)') < realtime.indexOf('S=normalizeState(payload.new.state)'),
+    'local dirty-state guard must run before remote state replacement'
+  );
+  assert.match(realtime, /incomingRevision<=Number\(cloudRevision\|\|0\)/);
+});
+
+test('migration adds a non-null revision counter without destructive state operations', () => {
   assert.match(migration, /ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1/i);
   assert.match(migration, /UPDATE public\.app_state/i);
   assert.match(migration, /revision = revision \+ 1/i);
@@ -30,9 +45,25 @@ test('migration adds a non-null revision counter without replacing existing stat
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM public\.app_state/i);
 });
 
-test('save RPC requires authentication and restricts execution grants', () => {
+test('save RPC uses invoker rights, fixed search path and authenticated member scoping', () => {
   assert.match(migration, /IF auth\.uid\(\) IS NULL THEN/i);
   assert.match(migration, /SECURITY INVOKER/i);
+  assert.match(migration, /SET search_path = public/i);
+  assert.match(migration, /FROM public\.household_members hm/i);
+  assert.match(migration, /WHERE hm\.user_id = auth\.uid\(\)/i);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM PUBLIC/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.save_app_state\(bigint, jsonb\) FROM anon/i);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.save_app_state\(bigint, jsonb\) TO authenticated/i);
+  assert.doesNotMatch(migration, /SECURITY DEFINER/i);
+});
+
+test('migration rejects invalid expected revisions and null state', () => {
+  assert.match(migration, /p_expected_revision IS NULL OR p_expected_revision < 1/i);
+  assert.match(migration, /p_state IS NULL/i);
+  assert.match(migration, /RAISE EXCEPTION 'INVALID_EXPECTED_REVISION'/i);
+  assert.match(migration, /RAISE EXCEPTION 'INVALID_STATE'/i);
+});
+
+test('browser source does not include a service-role secret key', () => {
+  assert.doesNotMatch(html, /service_role\s*[:=]\s*['"][^'"]+['"]/i);
 });
