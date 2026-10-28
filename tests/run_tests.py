@@ -145,6 +145,26 @@ with sync_playwright() as p:
   assert result!='accepted',result
  check('Reject inconsistent recurring split in imported backup',reject_corrupt_shares)
  check('No uncaught page errors',lambda: (_ for _ in ()).throw(AssertionError(str(errors))) if errors else None)
+ # Cloud preview browser checks without logging in or writing to Supabase.
+ cloud_page=browser.new_page(viewport={'width':390,'height':844},is_mobile=True,has_touch=True)
+ cloud_errors=[]
+ cloud_page.on('pageerror',lambda e:cloud_errors.append(str(e)))
+ cloud_page.goto((repo_root/'cloud-test.html').as_uri(),wait_until='domcontentloaded')
+ cloud_page.wait_for_timeout(600)
+ def cloud_endpoint():
+  assert cloud_page.evaluate("CLOUD_CONFIG.url")=='https://kixnyvgqtznjzdrvbweb.supabase.co'
+  assert cloud_page.evaluate("K")=='meow_cloud_test_v1'
+  assert cloud_page.evaluate("cloudReady()"),'Test Supabase client not initialized'
+ check('Cloud preview uses isolated Supabase configuration',cloud_endpoint)
+ check('Cloud preview has recurring amount input',lambda: assert_visible(cloud_page,'#tx-amount'))
+ def cloud_recurring():
+  cloud_page.locator('#tx-repeat').check()
+  assert_visible(cloud_page,'#tx-repeat-options')
+  cloud_page.locator('#tx-repeat-frequency').select_option('yearly')
+  assert cloud_page.locator('#tx-repeat-frequency').input_value()=='yearly'
+ check('Cloud preview recurring controls work',cloud_recurring)
+ check('Cloud preview has no uncaught browser errors',lambda: (_ for _ in ()).throw(AssertionError(str(cloud_errors))) if cloud_errors else None)
+ cloud_page.close()
  browser.close()
 Path('test-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
 print(json.dumps(results,ensure_ascii=False,indent=2))
