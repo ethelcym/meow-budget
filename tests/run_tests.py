@@ -19,6 +19,7 @@ assert 'tx-repeat-frequency' in prod and 'tx-repeat-frequency' in preview, 'Recu
 assert 'tx-repeat-frequency' in cloud_test, 'Recurring UI missing from cloud test'
 assert "const K='meow_cloud_test_v1'" in cloud_test, 'Cloud test local storage key incorrect'
 assert "const ROLE_KEY='meow_cloud_test_personal_role_'" in cloud_test, 'Cloud test role key incorrect'
+assert 'initCloud();' in cloud_test.split("$('tx-date').value=ld();")[-1], 'Cloud test does not initialize authentication'
 results=[]
 def check(name,fn):
  try:
