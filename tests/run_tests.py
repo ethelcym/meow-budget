@@ -2,6 +2,9 @@ import json,sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 source=Path(sys.argv[1]).resolve()
+if not source.is_file():
+ print('Preview file not found:',source,file=sys.stderr)
+ sys.exit(2)
 results=[]
 def check(name,fn):
  try:
@@ -42,6 +45,24 @@ with sync_playwright() as p:
   page.locator('#submit-btn').click()
   assert page.evaluate('S.tx.length')==before+1
  check('Save expense',basic)
+ def invalid_amount():
+  page.evaluate("switchTab('add');U.cat=S.cats.find(c=>c.type==='expense'&&!c.parentId&&!c.archived).id")
+  page.locator('#tx-amount').fill('0')
+  before=page.evaluate('S.tx.length')
+  page.locator('#submit-btn').click()
+  assert page.evaluate('S.tx.length')==before
+ check('Reject zero amount',invalid_amount)
+ def invalid_end_date():
+  page.locator('#tx-amount').fill('20')
+  page.locator('#tx-date').fill('2026-10-28')
+  page.locator('#tx-repeat').check()
+  page.locator('#tx-repeat-end').fill('2026-10-27')
+  before=page.evaluate('[S.tx.length,S.recurring.length]')
+  page.locator('#submit-btn').click()
+  assert page.evaluate('[S.tx.length,S.recurring.length]')==before
+  page.locator('#tx-repeat').uncheck()
+  page.locator('#tx-repeat-end').fill('')
+ check('Reject recurring end before start',invalid_end_date)
  def recurrence():
   page.evaluate("switchTab('add');U.type='expense';U.group='Mrs Meow';U.payer='Mrs Meow';U.cat=S.cats.find(c=>c.type==='expense'&&!c.parentId&&!c.archived).id")
   page.locator('#tx-amount').fill('15')
