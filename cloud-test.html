@@ -113,7 +113,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <select id="f-group" onchange="U.limit=50;renderRecords()" aria-label="篩選組別" class="bg-slate-100 rounded-xl px-2 py-2 font-medium"><option value="ALL">全部組別</option><option>共同</option><option>Mrs Meow</option><option>Mr Meow</option></select>
         <select id="f-type" onchange="U.limit=50;renderRecords()" aria-label="篩選類型" class="bg-slate-100 rounded-xl px-2 py-2 font-medium"><option value="ALL">全部類型</option><option value="expense">支出</option><option value="income">收入</option></select>
       </div>
-      <select id="f-category" onchange="U.limit=50;renderRecords()" aria-label="篩選分類" class="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs font-medium"><option value="ALL">全部分類</option></select>
+      <div class="grid grid-cols-2 gap-2">
+        <select id="f-category" onchange="U.limit=50;renderRecords()" aria-label="篩選分類" class="w-full min-w-0 bg-slate-100 rounded-xl px-3 py-2 text-xs font-medium"><option value="ALL">全部分類</option></select>
+        <select id="f-subcategory" onchange="U.limit=50;renderRecords()" aria-label="篩選子分類" class="hidden w-full min-w-0 bg-slate-100 rounded-xl px-3 py-2 text-xs font-medium"><option value="ALL">全部子分類</option></select>
+      </div>
       <input id="f-q" oninput="U.limit=50;renderRecords()" aria-label="搜尋紀錄" placeholder="🔍 搜尋備註／分類" class="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs">
       <div id="rec-list" class="space-y-2"></div>
     </section>
@@ -496,7 +499,13 @@ function renderRecords(){
  categorySelect.innerHTML='<option value="ALL">全部分類</option>'+categories.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.icon||'')+' '+esc(c.name)+'</option>').join('');
  categorySelect.value=categories.some(c=>c.id===selectedCategory)?selectedCategory:'ALL';
  const fc=categorySelect.value;
- const list=S.tx.filter(t=>t.date.startsWith(U.month)&&(fg==='ALL'||t.group===fg)&&(ft==='ALL'||t.type===ft)&&(fc==='ALL'||t.categoryId===fc)&&(!q||(t.note||'').toLocaleLowerCase().includes(q)||catPath(t).toLocaleLowerCase().includes(q)||t.group.toLocaleLowerCase().includes(q)))
+ const subSelect=$('f-subcategory'),previousSub=subSelect.value;
+ const childCategories=fc==='ALL'?[]:S.cats.filter(c=>c.parentId===fc);
+ subSelect.innerHTML='<option value="ALL">全部子分類</option>'+childCategories.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');
+ subSelect.value=childCategories.some(c=>c.id===previousSub)?previousSub:'ALL';
+ subSelect.classList.toggle('hidden',childCategories.length===0);
+ const fs=subSelect.value;
+ const list=S.tx.filter(t=>t.date.startsWith(U.month)&&(fg==='ALL'||t.group===fg)&&(ft==='ALL'||t.type===ft)&&(fc==='ALL'||t.categoryId===fc)&&(fs==='ALL'||t.subCategoryId===fs)&&(!q||(t.note||'').toLocaleLowerCase().includes(q)||catPath(t).toLocaleLowerCase().includes(q)||t.group.toLocaleLowerCase().includes(q)))
  .sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)));
  if(!list.length){$('rec-list').innerHTML='<div class="text-center text-xs text-slate-400 py-8">呢個月冇符合條件嘅紀錄</div>';return}
  const shown=list.slice(0,U.limit);let html='',last='';
