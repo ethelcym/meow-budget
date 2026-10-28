@@ -258,7 +258,7 @@ async function createHousehold(){
   const {data,error}=await cloudClient.rpc('create_household');
   if(error)throw error;
   householdId=data;
-  const {error:stateError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});
+  const {error:stateError}=await cloudClient.from('app_state').insert({household_id:householdId,state:S,updated_by:cloudUser.id});
   if(stateError)throw stateError;
   const {data:createdState,error:revisionError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();
   if(revisionError)throw revisionError;
@@ -279,7 +279,7 @@ async function joinHousehold(){
   const {data:remote,error:readError}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).maybeSingle();
   if(readError)throw readError;
   if(remote&&remote.state){S=normalizeState(remote.state);cloudRevision=Number(remote.revision)||1;localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
-  else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:createdError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(createdError)throw createdError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
+  else {const {error:writeError}=await cloudClient.from('app_state').insert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:createdError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(createdError)throw createdError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
   hideAuth();subscribeCloud();setCloudStatus('已加入共用帳本並同步');render();
  }catch(e){authMessage('加入失敗：'+e.message)}
 }
@@ -287,7 +287,7 @@ async function pullCloudState(){
  const {data,error}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).maybeSingle();
  if(error)throw error;
  if(data&&data.state){S=normalizeState(data.state);cloudRevision=Number(data.revision)||1;localStorage.setItem(K,JSON.stringify(S));cloudLocalDirty=false;cloudConflict=false}
- else {const {error:writeError}=await cloudClient.from('app_state').upsert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:readError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(readError)throw readError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
+ else {const {error:writeError}=await cloudClient.from('app_state').insert({household_id:householdId,state:S,updated_by:cloudUser.id});if(writeError)throw writeError;const {data:created,error:readError}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).single();if(readError)throw readError;cloudRevision=Number(created.revision)||1;cloudLocalDirty=false;cloudConflict=false}
 }
 function scheduleCloudSave(){
  if(!cloudClient||!cloudUser||!householdId||cloudConflict)return;
