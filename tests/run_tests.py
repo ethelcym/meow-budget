@@ -110,6 +110,16 @@ with sync_playwright() as p:
   shares=page.evaluate("S.tx.find(t=>t.recurringId==='test-custom-split').shares")
   assert shares=={'Mrs Meow':700,'Mr Meow':300},shares
  check('Custom shared split preserved when recurring posts',custom_split)
+ def reject_corrupt_shares():
+  state=page.evaluate("JSON.stringify(S)")
+  result=page.evaluate("""raw => {
+   const bad=JSON.parse(raw);
+   const r=bad.recurring.find(x=>x.id==='test-custom-split');
+   r.shares={'Mrs Meow':700,'Mr Meow':400};
+   try {normalizeState(bad);return 'accepted'}catch(e){return e.message}
+  }""",state)
+  assert result!='accepted',result
+ check('Reject inconsistent recurring split in imported backup',reject_corrupt_shares)
  check('No uncaught page errors',lambda: (_ for _ in ()).throw(AssertionError(str(errors))) if errors else None)
  browser.close()
 Path('test-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
