@@ -113,6 +113,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         <select id="f-group" onchange="U.limit=50;renderRecords()" aria-label="篩選組別" class="bg-slate-100 rounded-xl px-2 py-2 font-medium"><option value="ALL">全部組別</option><option>共同</option><option>Mrs Meow</option><option>Mr Meow</option></select>
         <select id="f-type" onchange="U.limit=50;renderRecords()" aria-label="篩選類型" class="bg-slate-100 rounded-xl px-2 py-2 font-medium"><option value="ALL">全部類型</option><option value="expense">支出</option><option value="income">收入</option></select>
       </div>
+      <select id="f-category" onchange="U.limit=50;renderRecords()" aria-label="篩選分類" class="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs font-medium"><option value="ALL">全部分類</option></select>
       <input id="f-q" oninput="U.limit=50;renderRecords()" aria-label="搜尋紀錄" placeholder="🔍 搜尋備註／分類" class="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs">
       <div id="rec-list" class="space-y-2"></div>
     </section>
@@ -490,7 +491,12 @@ function setBG(g){if(!P.includes(g))return;U.bGroup=g;renderBudget()}
 function setBudget(id,v){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){toast('請輸入 0 或以上嘅數字',true);return renderBudget()}S.budgets[U.bGroup]=S.budgets[U.bGroup]||{};S.budgets[U.bGroup][id]=n;if(save()){renderBudget();toast(`已更新【${U.bGroup}】預算`)}}
 function renderRecords(){
  const fg=$('f-group').value,ft=$('f-type').value,q=$('f-q').value.trim().toLocaleLowerCase();
- const list=S.tx.filter(t=>t.date.startsWith(U.month)&&(fg==='ALL'||t.group===fg)&&(ft==='ALL'||t.type===ft)&&(!q||(t.note||'').toLocaleLowerCase().includes(q)||catPath(t).toLocaleLowerCase().includes(q)||t.group.toLocaleLowerCase().includes(q)))
+ const categorySelect=$('f-category'),selectedCategory=categorySelect.value;
+ const categories=S.cats.filter(c=>!c.parentId&&(ft==='ALL'||c.type===ft)).sort((a,b)=>a.name.localeCompare(b.name,'zh-HK'));
+ categorySelect.innerHTML='<option value="ALL">全部分類</option>'+categories.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.icon||'')+' '+esc(c.name)+'</option>').join('');
+ categorySelect.value=categories.some(c=>c.id===selectedCategory)?selectedCategory:'ALL';
+ const fc=categorySelect.value;
+ const list=S.tx.filter(t=>t.date.startsWith(U.month)&&(fg==='ALL'||t.group===fg)&&(ft==='ALL'||t.type===ft)&&(fc==='ALL'||t.categoryId===fc)&&(!q||(t.note||'').toLocaleLowerCase().includes(q)||catPath(t).toLocaleLowerCase().includes(q)||t.group.toLocaleLowerCase().includes(q)))
  .sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)));
  if(!list.length){$('rec-list').innerHTML='<div class="text-center text-xs text-slate-400 py-8">呢個月冇符合條件嘅紀錄</div>';return}
  const shown=list.slice(0,U.limit);let html='',last='';
