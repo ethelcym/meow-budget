@@ -16,6 +16,9 @@ assert 'hennrsqbxvrwmdizdnzg.supabase.co' not in preview, 'Production endpoint f
 assert 'hennrsqbxvrwmdizdnzg.supabase.co' not in cloud_test, 'Production endpoint found in cloud test'
 assert 'kixnyvgqtznjzdrvbweb.supabase.co' in cloud_test, 'Cloud test endpoint missing'
 assert 'tx-repeat-frequency' in prod and 'tx-repeat-frequency' in preview, 'Recurring UI missing from candidate'
+assert 'tx-repeat-frequency' in cloud_test, 'Recurring UI missing from cloud test'
+assert "const K='meow_cloud_test_v1'" in cloud_test, 'Cloud test local storage key incorrect'
+assert "const ROLE_KEY='meow_cloud_test_personal_role_'" in cloud_test, 'Cloud test role key incorrect'
 results=[]
 def check(name,fn):
  try:
