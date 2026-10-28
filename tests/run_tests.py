@@ -102,6 +102,14 @@ with sync_playwright() as p:
   page.wait_for_timeout(300)
   assert page.evaluate("JSON.stringify(S)")==saved
  check('Local data survives reload',storage)
+ def custom_split():
+  page.evaluate("""S.recurring.push({id:'test-custom-split',type:'expense',group:'共同',payer:'Mrs Meow',amount:1000,shares:{'Mrs Meow':700,'Mr Meow':300},categoryId:'c1',note:'custom split test',frequency:'monthly',startDate:'2026-12-01',nextDue:'2026-12-01',anchorDay:1,anchorMonth:11,endDate:'2026-12-01',paused:false})""")
+  page.evaluate("materializeDueRecurring('2026-12-01')")
+  assert page.evaluate("S.planned.find(p=>p.recurringId==='test-custom-split').shares['Mrs Meow']")==700
+  page.evaluate("postPlanned(S.planned.find(p=>p.recurringId==='test-custom-split').id)")
+  shares=page.evaluate("S.tx.find(t=>t.recurringId==='test-custom-split').shares")
+  assert shares=={'Mrs Meow':700,'Mr Meow':300},shares
+ check('Custom shared split preserved when recurring posts',custom_split)
  check('No uncaught page errors',lambda: (_ for _ in ()).throw(AssertionError(str(errors))) if errors else None)
  browser.close()
 Path('test-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
