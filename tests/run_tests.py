@@ -164,6 +164,38 @@ with sync_playwright() as p:
   assert cloud_page.locator('#tx-repeat-frequency').input_value()=='yearly'
  check('Cloud preview recurring controls work',cloud_recurring)
  check('Cloud preview has no uncaught browser errors',lambda: (_ for _ in ()).throw(AssertionError(str(cloud_errors))) if cloud_errors else None)
+ # Simulate two device revisions without any network writes.
+ def stale_revision_guard():
+  outcome=cloud_page.evaluate("""async () => {
+   cloudClient={rpc:async()=>({data:null,error:{message:'REVISION_CONFLICT'}})};
+   cloudUser={id:'test-user'};householdId='test-household';cloudRevision=1;
+   cloudConflict=false;cloudLocalDirty=true;
+   scheduleCloudSave();
+   await new Promise(resolve=>setTimeout(resolve,950));
+   const result={conflict:cloudConflict,dirty:cloudLocalDirty};
+   clearTimeout(cloudTimer);
+   cloudClient=null;cloudUser=null;householdId=null;
+   return result;
+  }""")
+  assert outcome=={'conflict':True,'dirty':True},outcome
+ check('Stale cloud revision stops automatic overwrites',stale_revision_guard)
+ def remote_update_guard():
+  result=cloud_page.evaluate("""() => {
+   cloudRevision=2;cloudLocalDirty=true;cloudConflict=false;
+   // The realtime handler is registered via subscribeCloud; capture it without network.
+   let handler=null;
+   cloudClient={channel:()=>({on:(event,opts,fn)=>{handler=fn;return {subscribe:()=>({})}}}),removeChannel:()=>{}};
+   householdId='test-household';cloudChannel=null;
+   subscribeCloud();
+   const incoming=JSON.parse(JSON.stringify(S));incoming.tx.push({...incoming.tx[0],id:'remote-new-entry'});
+   return Promise.resolve(handler({new:{revision:3,state:incoming}})).then(()=>{
+    const outcome={conflict:cloudConflict,dirty:cloudLocalDirty,revision:cloudRevision};
+    cloudClient=null;householdId=null;cloudChannel=null;
+    return outcome;
+   });
+  }""")
+  assert result['conflict'] is True and result['dirty'] is True and result['revision']==2,result
+ check('Incoming conflicting cloud update preserves local changes',remote_update_guard)
  cloud_page.close()
  browser.close()
 Path('test-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
