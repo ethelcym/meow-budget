@@ -61,7 +61,7 @@ with sync_playwright() as p:
   page.locator('#submit-btn').click()
   assert page.evaluate('[S.tx.length,S.recurring.length]')==before
   page.locator('#tx-repeat-end').fill('')
-page.locator('#tx-repeat').uncheck()
+  page.locator('#tx-repeat').uncheck()
  check('Reject recurring end before start',invalid_end_date)
  def recurrence():
   page.evaluate("switchTab('add');U.type='expense';U.group='Mrs Meow';U.payer='Mrs Meow';U.cat=S.cats.find(c=>c.type==='expense'&&!c.parentId&&!c.archived).id")
