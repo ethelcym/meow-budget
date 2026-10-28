@@ -85,6 +85,23 @@ with sync_playwright() as p:
   assert page.evaluate("nextOccurrence('2026-01-31','monthly',31,0)")=='2026-02-28'
   assert page.evaluate("nextOccurrence('2028-01-31','monthly',31,0)")=='2028-02-29'
  check('Month-end and leap-year schedule',leap)
+ def role():
+  page.evaluate("setMyRole('Mr Meow');switchTab('records');switchTab('add')")
+  page.wait_for_timeout(300)
+  assert page.evaluate("U.group")=='Mr Meow'
+  assert page.evaluate("U.payer")=='Mr Meow'
+  assert page.evaluate("groupOrder().at(-1)")=='共同'
+ check('Mr Meow defaults and shared last',role)
+ def weekly_yearly():
+  assert page.evaluate("nextOccurrence('2026-10-28','weekly')")=='2026-11-04'
+  assert page.evaluate("nextOccurrence('2028-02-29','yearly',29,1)")=='2029-02-28'
+ check('Weekly and yearly recurrence dates',weekly_yearly)
+ def storage():
+  saved=page.evaluate("JSON.stringify(S)")
+  page.reload(wait_until='domcontentloaded')
+  page.wait_for_timeout(300)
+  assert page.evaluate("JSON.stringify(S)")==saved
+ check('Local data survives reload',storage)
  check('No uncaught page errors',lambda: (_ for _ in ()).throw(AssertionError(str(errors))) if errors else None)
  browser.close()
 Path('test-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
