@@ -114,6 +114,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     </section>
 
     <section id="view-settings" class="hidden p-4 space-y-3">
+      <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3"><div class="font-bold text-sm">🐱 我的身份</div><p class="text-[11px] text-slate-500">只影響你登入帳戶喺呢部裝置嘅記帳預設值；唔會更改共同帳本或舊紀錄。</p><div id="identity-seg" class="grid grid-cols-2 gap-2"></div></div>
       <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2">
         <div class="font-bold text-sm">📁 新增分類 / 子分類</div>
         <select id="nc-type" onchange="renderSettings()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs"><option value="expense">支出</option><option value="income">收入</option></select>
@@ -227,7 +228,7 @@ async function authAction(action){
  if(result.data.session)await onSignedIn(result.data.user);
 }
 async function onSignedIn(user){
- cloudUser=user;hideAuth();setCloudStatus('已登入 '+user.email+'，正在尋找共用帳本…');
+ cloudUser=user;loadMyRole();hideAuth();setCloudStatus('已登入 '+user.email+'，正在尋找共用帳本…');
  try{
   const {data:members,error}=await cloudClient.from('household_members').select('household_id').eq('user_id',user.id).limit(1);
   if(error)throw error;
@@ -330,13 +331,25 @@ async function signOutCloud(){
  if(!cloudClient)return;
  if(!confirm('確定登出？未同步資料請先確認已備份。'))return;
  if(cloudChannel)await cloudClient.removeChannel(cloudChannel);
- await cloudClient.auth.signOut();cloudUser=null;householdId=null;showAuth();
+ await cloudClient.auth.signOut();cloudUser=null;householdId=null;loadMyRole();showAuth();
 }
 function save(){
  try{localStorage.setItem(K,JSON.stringify(S));if(cloudClient&&cloudUser&&householdId)cloudLocalDirty=true;scheduleCloudSave();return true}
  catch(e){toast('儲存失敗：瀏覽器儲存空間可能不足，請先匯出備份',true);return false}
 }
-const U={tab:'add',type:'expense',group:'共同',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,saving:false,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
+const U={tab:'add',type:'expense',group:'Mrs Meow',payer:'Mrs Meow',splitMode:'equal',shareMrs:0,shareMr:0,saving:false,cat:null,sub:null,editId:null,bGroup:'Mrs Meow',rGroup:'合計',month:ld().slice(0,7),limit:50};
+const ROLE_KEY='meow_v3_personal_role_';
+let myRole='Mrs Meow';
+function roleKey(){return ROLE_KEY+(cloudUser?.id||'local')}
+function loadMyRole(){try{myRole=localStorage.getItem(roleKey())==='Mr Meow'?'Mr Meow':'Mrs Meow'}catch(e){myRole='Mrs Meow'};if(!U.editId&&U.type==='expense'){U.group=myRole;U.payer=myRole}}
+function groupOrder(){return [myRole,myRole==='Mrs Meow'?'Mr Meow':'Mrs Meow','共同']}
+function setMyRole(role){
+ if(!P.includes(role))return;
+ try{localStorage.setItem(roleKey(),role)}catch(e){toast('身份設定無法儲存，請檢查瀏覽器儲存空間',true);return}
+ myRole=role;
+ if(!U.editId&&U.type==='expense'){U.group=role;U.payer=role}
+ renderSettings();toast('已設定身份：'+role);
+}
 const cat=id=>S.cats.find(c=>c.id===id);
 const mains=(type,all=false)=>S.cats.filter(c=>c.type===type&&!c.parentId&&(all||!c.archived));
 const subs=id=>S.cats.filter(c=>c.parentId===id&&!c.archived);
@@ -361,7 +374,7 @@ function render(){
 }
 function renderAdd(){
  $('type-seg').innerHTML=[['expense','⬇️ 支出'],['income','⬆️ 收入']].map(([k,n])=>`<button type="button" onclick="setType('${k}')" class="py-2.5 rounded-xl font-bold text-sm ${U.type===k?'bg-white text-brand-700 shadow-sm':'text-slate-500'}">${n}</button>`).join('');
- $('group-seg').innerHTML=G.map(g=>`<button type="button" onclick="setGroup('${g}')" class="py-2 text-xs font-bold rounded-xl border ${g===U.group?'border-brand-600 bg-brand-50 text-brand-700':'border-slate-200 bg-white text-slate-600'}">${g}</button>`).join('');
+ $('group-seg').innerHTML=groupOrder().map(g=>`<button type="button" onclick="setGroup('${g}')" class="py-2 text-xs font-bold rounded-xl border ${g===U.group?'border-brand-600 bg-brand-50 text-brand-700':'border-slate-200 bg-white text-slate-600'}">${g}</button>`).join('');
  const showP=U.type==='expense';$('payer-box').classList.toggle('hidden',!showP);
  $('payer-seg').innerHTML=P.map(p=>`<button type="button" onclick="U.payer='${p}';renderAdd()" class="py-2 text-xs font-bold rounded-xl border ${p===U.payer?'border-amber-500 bg-amber-50 text-amber-800':'border-slate-200 bg-white text-slate-600'}">${p} 付款</button>`).join('');
  const showSplit=U.type==='expense'&&U.group==='共同';$('split-box').classList.toggle('hidden',!showSplit);
@@ -377,7 +390,7 @@ function renderAdd(){
  if(!$('tx-date').value)$('tx-date').value=ld();
  $('edit-note').classList.toggle('hidden',!U.editId);$('submit-btn').textContent=U.editId?'✓ 更新記帳':'✓ 確定記帳';renderAlerts();
 }
-function setType(t){U.type=t;U.cat=null;U.sub=null;renderAdd()}
+function setType(t){U.type=t;U.cat=null;U.sub=null;if(t==='expense'&&!U.editId){U.group=myRole;U.payer=myRole}renderAdd()}
 function setGroup(g){U.group=g;if(g==='Mrs Meow')U.payer='Mrs Meow';else if(g==='Mr Meow')U.payer='Mr Meow';U.splitMode='equal';renderAdd()}
 function alertsFor(g,m){const out=[];mains('expense',true).forEach(c=>{const lim=Number((S.budgets[g]||{})[c.id])||0;if(lim>0){const s=spent(g,c.id,m),r=s/lim;if(r>=.8)out.push({g,name:c.name,s,lim,danger:r>=1,r})}});return out}
 function renderAlerts(){
@@ -386,7 +399,7 @@ function renderAlerts(){
  $('banner').classList.toggle('hidden',!w.length);
  if(w.length)$('banner-t').textContent=`【${w[0].g} - ${w[0].name}】${w[0].danger?'已爆預算':'預算達 '+Math.round(w[0].r*100)+'%'}`;
 }
-function resetForm(){U.editId=null;U.sub=null;$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
+function resetForm(){U.editId=null;U.sub=null;if(U.type==='expense'){U.group=myRole;U.payer=myRole;U.splitMode='equal'};$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
 function cancelEdit(){resetForm();renderAdd()}
 function submitTx(){
  const amount=Number($('tx-amount').value),date=$('tx-date').value||ld(),note=$('tx-note').value.trim();
@@ -560,6 +573,7 @@ function postPlanned(id){
 }
 
 function renderSettings(){
+ $('identity-seg').innerHTML=P.map(role=>`<button type="button" onclick="setMyRole('${role}')" class="py-2.5 rounded-xl border text-xs font-bold ${myRole===role?'border-brand-600 bg-brand-50 text-brand-700':'border-slate-200 bg-white text-slate-600'}" aria-pressed="${myRole===role}">${role}</button>`).join('');
  renderRecurring();
  const t=$('nc-type').value,p=$('nc-parent').value;
  $('nc-parent').innerHTML='<option value="">最上層 (主分類)</option>'+mains(t).map(c=>`<option value="${esc(c.id)}">${esc(c.name)} 下面 (子分類)</option>`).join('');
@@ -593,8 +607,9 @@ function importBackup(){
  try{const imported=normalizeState(JSON.parse($('bk').value));if(!confirm('匯入會覆蓋現有所有資料，建議先備份。確定匯入？'))return;const old=S;S=imported;if(!save()){S=old;return}resetForm();U.cat=null;toast('匯入成功');render()}
  catch(e){toast('匯入失敗：'+(e.message||'JSON 格式不正確'),true)}
 }
-function resetAll(){if(!confirm('確定要重置所有數據並恢復範例數據？此操作不能復原，請先備份。'))return;const old=S;S=defaults();if(!save()){S=old;return}resetForm();U.cat=null;U.type='expense';U.group='共同';U.bGroup='共同';U.rGroup='合計';toast('已恢復範例數據');render()}
+function resetAll(){if(!confirm('確定要重置所有數據並恢復範例數據？此操作不能復原，請先備份。'))return;const old=S;S=defaults();if(!save()){S=old;return}resetForm();U.cat=null;U.type='expense';U.group=myRole;U.bGroup='共同';U.rGroup='合計';toast('已恢復範例數據');render()}
 $('tx-date').value=ld();
+loadMyRole();
 render();
 initCloud();
 </script>
