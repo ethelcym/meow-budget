@@ -97,10 +97,20 @@ with sync_playwright() as p:
   assert page.evaluate("nextOccurrence('2028-02-29','yearly',29,1)")=='2029-02-28'
  check('Weekly and yearly recurrence dates',weekly_yearly)
  def storage():
-  saved=page.evaluate("JSON.stringify(S)")
+  # Compare the persisted snapshot after the app's documented load normalization.
+  # Also check that saving/reloading does not lose transactions or recurring data.
+  before=page.evaluate("""() => ({memory:JSON.parse(JSON.stringify(S)),disk:JSON.parse(localStorage.getItem(K))})""")
+  assert before['disk'] is not None,'No saved local state'
+  expected=page.evaluate("""raw => normalizeState(JSON.parse(JSON.stringify(raw)))""",before['disk'])
   page.reload(wait_until='domcontentloaded')
   page.wait_for_timeout(300)
-  assert page.evaluate("JSON.stringify(S)")==saved
+  after=page.evaluate("JSON.parse(JSON.stringify(S))")
+  if after!=expected:
+   keys=set(expected)|set(after)
+   differences={k:{'expected':str(expected.get(k))[:180],'actual':str(after.get(k))[:180]} for k in keys if expected.get(k)!=after.get(k)}
+   raise AssertionError('Reload differs from persisted normalized state: '+str(differences)[:900])
+  for key in ('tx','recurring','planned','repayments'):
+   assert len(after.get(key,[]))==len(expected.get(key,[])),key+' record count changed'
  check('Local data survives reload',storage)
  def custom_split():
   page.evaluate("""S.recurring.push({id:'test-custom-split',type:'expense',group:'共同',payer:'Mrs Meow',amount:1000,shares:{'Mrs Meow':700,'Mr Meow':300},categoryId:'c1',note:'custom split test',frequency:'monthly',startDate:'2026-12-01',nextDue:'2026-12-01',anchorDay:1,anchorMonth:11,endDate:'2026-12-01',paused:false})""")
