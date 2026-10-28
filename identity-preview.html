@@ -432,7 +432,7 @@ function submitTx(){
    }else{const a=Math.floor(Math.round(amount*100)/2)/100;shares={'Mrs Meow':a,'Mr Meow':Math.round(amount*100)/100-a};}
   }else shares={'Mrs Meow':U.group==='Mrs Meow'?amount:0,'Mr Meow':U.group==='Mr Meow'?amount:0};
  }
- const oldRecurring=S.recurring;
+ const oldRecurring=S.recurring.slice();
  let recurring=null;
  if(repeatEnabled){
   if(!['weekly','monthly','yearly'].includes(repeatFrequency))return toast('週期頻率不正確',true);
