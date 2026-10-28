@@ -196,6 +196,40 @@ with sync_playwright() as p:
   }""")
   assert result['conflict'] is True and result['dirty'] is True and result['revision']==2,result
  check('Incoming conflicting cloud update preserves local changes',remote_update_guard)
+ def cloud_clean_remote_update():
+  result=cloud_page.evaluate("""async () => {
+   cloudRevision=4;cloudLocalDirty=false;cloudConflict=false;
+   let handler=null;
+   cloudClient={channel:()=>({on:(event,opts,fn)=>{handler=fn;return {subscribe:()=>({})}}}),removeChannel:()=>{}};
+   householdId='test-household';cloudChannel=null;
+   subscribeCloud();
+   const incoming=JSON.parse(JSON.stringify(S));
+   incoming.tx.push({...incoming.tx[0],id:'remote-clean-entry'});
+   await handler({new:{revision:5,state:incoming}});
+   const accepted=S.tx.some(t=>t.id==='remote-clean-entry');
+   const disk=JSON.parse(localStorage.getItem(K));
+   const result={accepted,revision:cloudRevision,conflict:cloudConflict,persisted:disk.tx.some(t=>t.id==='remote-clean-entry')};
+   cloudClient=null;householdId=null;cloudChannel=null;
+   return result;
+  }""")
+  assert result=={'accepted':True,'revision':5,'conflict':False,'persisted':True},result
+ check('Clean device accepts and persists remote cloud update',cloud_clean_remote_update)
+ def stale_remote_event():
+  result=cloud_page.evaluate("""async () => {
+   cloudRevision=7;cloudLocalDirty=false;cloudConflict=false;
+   let handler=null;
+   cloudClient={channel:()=>({on:(event,opts,fn)=>{handler=fn;return {subscribe:()=>({})}}}),removeChannel:()=>{}};
+   householdId='test-household';cloudChannel=null;
+   subscribeCloud();
+   const before=JSON.stringify(S);
+   const incoming=JSON.parse(before);incoming.tx=[];
+   await handler({new:{revision:6,state:incoming}});
+   const result={unchanged:JSON.stringify(S)===before,revision:cloudRevision};
+   cloudClient=null;householdId=null;cloudChannel=null;
+   return result;
+  }""")
+  assert result=={'unchanged':True,'revision':7},result
+ check('Older realtime event cannot roll back device data',stale_remote_event)
  cloud_page.close()
  browser.close()
 Path('test-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
