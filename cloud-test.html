@@ -315,6 +315,25 @@ function scheduleCloudSave(){
   finally{cloudBusy=false;if(cloudSaveQueued&&!cloudConflict){cloudSaveQueued=false;scheduleCloudSave()}}
  },700);
 }
+// Polling fallback for iOS Safari when Realtime websocket events are delayed or suspended.
+let cloudPollTimer=null;
+async function pollCloudRevision(){
+ if(!cloudClient||!cloudUser||!householdId||cloudBusy||cloudLocalDirty||cloudConflict||document.hidden)return;
+ try{
+  const {data,error}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).maybeSingle();
+  if(error||!data||Number(data.revision)<=Number(cloudRevision||0))return;
+  const {data:latest,error:readError}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).single();
+  if(readError||!latest||Number(latest.revision)<=Number(cloudRevision||0))return;
+  if(cloudLocalDirty||cloudBusy||cloudConflict)return;
+  S=normalizeState(latest.state);cloudRevision=Number(latest.revision);
+  localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新');
+ }catch(e){console.error('雲端輪詢失敗',e)}
+}
+function startCloudPolling(){
+ if(cloudPollTimer)clearInterval(cloudPollTimer);
+ cloudPollTimer=setInterval(pollCloudRevision,5000);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollCloudRevision()});
 function subscribeCloud(){
  if(!cloudClient||!householdId)return;
  if(cloudChannel)cloudClient.removeChannel(cloudChannel);
@@ -338,9 +357,11 @@ function subscribeCloud(){
    catch(e){console.error('雲端資料格式不正確',e)}
   }
  }).subscribe();
+ startCloudPolling();
 }
 async function signOutCloud(){
  if(!cloudClient)return;
+ if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null;}
  if(!confirm('確定登出？未同步資料請先確認已備份。'))return;
  if(cloudChannel)await cloudClient.removeChannel(cloudChannel);
  await cloudClient.auth.signOut();cloudUser=null;householdId=null;loadMyRole();showAuth();
@@ -375,7 +396,7 @@ const seg=(items,act,fn)=>items.map(i=>`<button type="button" onclick="${fn}('${
 const catPath=t=>{const m=cat(t.categoryId)||{name:'未知分類'},s=cat(t.subCategoryId);return s?`${m.name} > ${s.name}`:m.name};
 let tt;
 function toast(msg,warn=false){$('toast-msg').textContent=(warn?'⚠️ ':'✅ ')+msg;$('toast').classList.add('on');clearTimeout(tt);tt=setTimeout(()=>$('toast').classList.remove('on'),3500)}
-function switchTab(t){const entering=t==='add'&&U.tab!=='add';U.tab=t;U.limit=50;render();if(entering){const main=document.querySelector('main');if(main)main.scrollTop=0;setTimeout(()=>{if(U.tab==='add')$('tx-amount').focus({preventScroll:true})},100)}}
+function switchTab(t){const entering=t==='add'&&U.tab!=='add';U.tab=t;U.limit=50;render();const main=document.querySelector('main');if(main)main.scrollTop=0;if(entering){setTimeout(()=>{if(U.tab==='add')$('tx-amount').focus({preventScroll:true})},100)}}
 function shiftMonth(d){let[y,m]=U.month.split('-').map(Number);m+=d;if(m<1){m=12;y--}if(m>12){m=1;y++}U.month=`${y}-${pad(m)}`;render()}
 function render(){
  TABS.forEach(([k])=> $('view-'+k).classList.toggle('hidden',k!==U.tab));
@@ -455,7 +476,7 @@ function submitTx(){
  const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
  let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
  if(tx.type==='expense'){const m=date.slice(0,7),targets=tx.group==='共同'?P:[tx.group];for(const g of targets){const lim=Number((S.budgets[g]||{})[main.id])||0;if(lim>0){const s=spent(g,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${g} - ${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true;break}else if(s/lim>=.8){message=`已記帳！【${g} - ${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}}
- toast(message,warn);if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(12);resetForm();U.saving=false;renderAdd();
+ U.month=date.slice(0,7);toast(message,warn);if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(12);resetForm();U.saving=false;renderAdd();
 }
 function renderBudget(){
  $('bg-seg').innerHTML=seg(P,U.bGroup,'setBG');const gb=S.budgets[U.bGroup]||{};let tb=0,ts=0;
