@@ -5,6 +5,17 @@ source=Path(sys.argv[1]).resolve()
 if not source.is_file():
  print('Preview file not found:',source,file=sys.stderr)
  sys.exit(2)
+# Deployment safety checks: fail closed if preview/test/prod endpoints are mixed.
+repo_root=Path(__file__).resolve().parent.parent
+prod=(repo_root/'index.html').read_text()
+preview=(repo_root/'identity-preview.html').read_text()
+cloud_test=(repo_root/'cloud-test.html').read_text()
+assert 'hennrsqbxvrwmdizdnzg.supabase.co' in prod, 'Production endpoint unexpectedly changed'
+assert 'kixnyvgqtznjzdrvbweb.supabase.co' not in prod, 'Test endpoint found in production'
+assert 'hennrsqbxvrwmdizdnzg.supabase.co' not in preview, 'Production endpoint found in offline preview'
+assert 'hennrsqbxvrwmdizdnzg.supabase.co' not in cloud_test, 'Production endpoint found in cloud test'
+assert 'kixnyvgqtznjzdrvbweb.supabase.co' in cloud_test, 'Cloud test endpoint missing'
+assert 'tx-repeat-frequency' in prod and 'tx-repeat-frequency' in preview, 'Recurring UI missing from candidate'
 results=[]
 def check(name,fn):
  try:
