@@ -438,7 +438,7 @@ function submitTx(){
  if(repeatEnabled){
   if(!['weekly','monthly','yearly'].includes(repeatFrequency))return toast('週期頻率不正確',true);
   const start=dateOnly(date);
-  recurring={id:uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,amount:Math.round(amount*100)/100,categoryId:U.cat,note,frequency:repeatFrequency,startDate:date,nextDue:nextOccurrence(date,repeatFrequency,start.getDate(),start.getMonth()),anchorDay:start.getDate(),anchorMonth:start.getMonth(),endDate:repeatEnd||null,paused:false};
+  recurring={id:uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,amount:Math.round(amount*100)/100,shares:shares?{...shares}:null,categoryId:U.cat,note,frequency:repeatFrequency,startDate:date,nextDue:nextOccurrence(date,repeatFrequency,start.getDate(),start.getMonth()),anchorDay:start.getDate(),anchorMonth:start.getMonth(),endDate:repeatEnd||null,paused:false};
  }
  const tx={id:U.editId||uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,shares,amount,categoryId:U.cat,subCategoryId:U.sub,date,note};
  if(U.saving)return;
@@ -548,7 +548,7 @@ function materializeDueRecurring(today=ld()){
   let guard=0;
   while(r.nextDue<=today&&(!r.endDate||r.nextDue<=r.endDate)&&guard++<500){
    if(!S.planned.some(p=>p.recurringId===r.id&&p.dueDate===r.nextDue)){
-    S.planned.push({id:uid(),recurringId:r.id,dueDate:r.nextDue,type:r.type,group:r.group,payer:r.payer||null,amount:r.amount,categoryId:r.categoryId,subCategoryId:null,note:r.note||'',status:'planned'});
+    S.planned.push({id:uid(),recurringId:r.id,dueDate:r.nextDue,type:r.type,group:r.group,payer:r.payer||null,amount:r.amount,shares:r.shares?{...r.shares}:null,categoryId:r.categoryId,subCategoryId:null,note:r.note||'',status:'planned'});
     created++;
    }
    r.nextDue=nextOccurrence(r.nextDue,r.frequency,r.anchorDay,r.anchorMonth);
@@ -590,7 +590,7 @@ function postPlanned(id){
  if(!cat(p.categoryId)||cat(p.categoryId).archived)return toast('原分類已封存，請先還原分類再入帳',true);
  if(S.tx.some(t=>t.recurringId===p.recurringId&&t.recurringDueDate===p.dueDate))return toast('已經入帳，避免重複記錄',true);
  const tx={id:uid(),type:p.type,group:p.group,payer:p.type==='expense'?p.payer:null,amount:p.amount,categoryId:p.categoryId,subCategoryId:null,date:p.dueDate,note:p.note,recurringId:p.recurringId,recurringDueDate:p.dueDate};
- if(p.type==='expense'){if(p.group==='共同')tx.shares={'Mrs Meow':Math.floor(Math.round(p.amount*100)/2)/100,'Mr Meow':(Math.round(p.amount*100)-Math.floor(Math.round(p.amount*100)/2))/100};else tx.shares={ 'Mrs Meow':p.group==='Mrs Meow'?p.amount:0,'Mr Meow':p.group==='Mr Meow'?p.amount:0};}
+ if(p.type==='expense'){if(p.group==='共同'){const cents=Math.round(p.amount*100),a=Math.round(Number(p.shares?.['Mrs Meow'])*100),b=Math.round(Number(p.shares?.['Mr Meow'])*100);tx.shares=Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0&&a+b===cents?{'Mrs Meow':a/100,'Mr Meow':b/100}:{'Mrs Meow':Math.floor(cents/2)/100,'Mr Meow':(cents-Math.floor(cents/2))/100};}else tx.shares={ 'Mrs Meow':p.group==='Mrs Meow'?p.amount:0,'Mr Meow':p.group==='Mr Meow'?p.amount:0};}
  S.tx.push(tx);p.status='posted';
  if(!save()){S.tx=S.tx.filter(t=>t.id!==tx.id);p.status='planned';return}
  toast('已確認入帳');if(navigator.vibrate)navigator.vibrate(12);renderSettings()
