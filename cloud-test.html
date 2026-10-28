@@ -553,11 +553,24 @@ function submitRepayment(){
 function deleteRepayment(id){if(!confirm('確定刪除此筆還款紀錄？原本開支會保留。'))return;const old=S.repayments;S.repayments=old.filter(r=>r.id!==id);if(save()){toast('還款紀錄已刪除');renderReports()}else S.repayments=old}
 function setRG(g){U.rGroup=g;renderReports()}
 function renderReports(){
- $('rp-seg').innerHTML=seg(['合計',...G],U.rGroup,'setRG');
- const tx=S.tx.filter(t=>t.date.startsWith(U.month)&&(U.rGroup==='合計'||t.group===U.rGroup)),ex=tx.filter(t=>t.type==='expense'),inc=sum(tx.filter(t=>t.type==='income')),tot=sum(ex),bal=inc-tot;
+ if(!['合計',...P].includes(U.rGroup))U.rGroup='合計';
+ $('rp-seg').innerHTML=seg(['合計',...P],U.rGroup,'setRG').replace('>合計<','>家庭總計<');
+ const tx=S.tx.filter(t=>t.date.startsWith(U.month));
+ const reportAmount=t=>{
+  const amount=Number(t.amount)||0;
+  if(U.rGroup==='合計')return amount;
+  if(t.group===U.rGroup)return amount;
+  if(t.group!=='共同'||t.type!=='expense')return 0;
+  if(!t.shares)return 0;
+  const a=Math.round(Number(t.shares['Mrs Meow']||0)*100),b=Math.round(Number(t.shares['Mr Meow']||0)*100);
+  return a+b===Math.round(amount*100)?Number(t.shares[U.rGroup]||0):0;
+ };
+ const ex=tx.filter(t=>t.type==='expense'&&reportAmount(t)>0).map(t=>({...t,amount:reportAmount(t)}));
+ const inc=sum(tx.filter(t=>t.type==='income'&&(U.rGroup==='合計'||t.group===U.rGroup))),tot=sum(ex),bal=inc-tot;
+ const unallocated=U.rGroup==='合計'?0:tx.filter(t=>t.type==='expense'&&t.group==='共同'&&(!t.shares||Math.round((Number(t.shares['Mrs Meow']||0)+Number(t.shares['Mr Meow']||0))*100)!==Math.round(Number(t.amount)*100))).length;
  $('rp-sum').innerHTML=[['收入',inc,'text-emerald-600'],['支出',tot,'text-red-500'],['結餘',bal,bal<0?'text-red-500':'text-slate-800']].map(([n,v,c])=>`<div class="bg-slate-50 rounded-2xl p-2.5 border border-slate-100"><div class="text-[11px] text-slate-400">${n}</div><div class="font-extrabold text-sm ${c}">${money(v)}</div></div>`).join('');
  let h='';mains('expense',true).forEach(m=>{const mt=ex.filter(t=>t.categoryId===m.id),mv=sum(mt);if(!mv)return;const rows=S.cats.filter(c=>c.parentId===m.id).map(s=>[s.name,sum(mt.filter(t=>t.subCategoryId===s.id))]);rows.push(['未細分',sum(mt.filter(t=>!t.subCategoryId||!cat(t.subCategoryId)))]);h+=`<div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-100"><div class="flex justify-between text-xs font-bold"><span>${esc(m.icon||'')} ${esc(m.name)} <span class="text-[10px] text-slate-400 font-normal">(${tot?(mv/tot*100).toFixed(1):'0.0'}%)</span></span><span>${money(mv)}</span></div>${rows.filter(r=>r[1]>0).map(r=>`<div class="flex justify-between text-xs text-slate-500 pl-5 py-0.5"><span>• ${esc(r[0])}</span><span>${money(r[1])}</span></div>`).join('')}</div>`});
- $('rp-break').innerHTML=h||'<div class="text-center text-xs text-slate-400 py-6">本月尚無支出紀錄</div>';
+ $('rp-break').innerHTML=(unallocated?'<div class="text-xs text-amber-800 bg-amber-50 rounded-xl p-3">本月有 '+unallocated+' 筆共同支出未設定有效分攤，暫未計入個人負擔。請先到記錄補充分攤資料。</div>':'')+(h||'<div class="text-center text-xs text-slate-400 py-6">本月尚無支出紀錄</div>');
  const st=currentSettlement();
  $('settle').innerHTML=`<div class="text-[11px] text-slate-400 mb-2">按所有已設定分攤的開支計算，欠款會跨月累積。</div><div class="flex justify-between text-slate-300"><span>已納入結算的開支</span><b class="text-white">${money(st.tracked/100)}</b></div><div class="flex justify-between text-slate-300"><span>已記錄還款</span><b class="text-white">${money(st.repaid/100)}</b></div><div class="pt-2 border-t border-slate-700 text-[12px]">${!st.debtor||st.outstanding<0.005?'✅ 已平帳，無需轉帳':`👉 <b class="text-amber-300">${st.debtor}</b> 尚欠 <b class="text-amber-300">${money(st.outstanding)}</b> 畀 ${st.creditor}`}</div>${st.legacy>0?`<div class="text-[11px] text-amber-300 mt-2">另有 ${money(st.legacy/100)} 舊共同開支未設定分攤，為免改動舊帳，暫未納入欠款計算。</div>`:''}`;
  if(!$('repay-date').value)$('repay-date').value=ld();
