@@ -636,7 +636,8 @@ function resetAll(){if(!confirm('確定要重置所有數據並恢復範例數�
 $('tx-date').value=ld();
 loadMyRole();
 render();
-// Standalone preview: no cloud login, no remote sync.
+// Isolated cloud test: initialize authentication against the TEST Supabase project only.
+initCloud();
 </script>
 <!-- Service worker disabled for isolated preview -->
 </body>
