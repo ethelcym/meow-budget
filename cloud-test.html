@@ -335,8 +335,14 @@ async function pollCloudRevision(){
 }
 function startCloudPolling(){
  if(cloudPollTimer)clearInterval(cloudPollTimer);
- cloudPollTimer=setInterval(pollCloudRevision,5000);
+ cloudPollTimer=setInterval(()=>{
+  if(cloudLocalDirty&&!cloudConflict&&!cloudBusy&&cloudClient&&cloudUser&&householdId&&navigator.onLine)scheduleCloudSave();
+  else pollCloudRevision();
+ },5000);
 }
+window.addEventListener('online',()=>{
+ if(cloudLocalDirty&&!cloudConflict&&cloudClient&&cloudUser&&householdId)scheduleCloudSave();
+});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollCloudRevision()});
 function subscribeCloud(){
  if(!cloudClient||!householdId)return;
