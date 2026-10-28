@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2C6E49">
-<!-- Isolated cloud test: manifest disabled -->
+<!-- Standalone identity preview: PWA manifest intentionally disabled -->
 <link rel="apple-touch-icon" sizes="180x180" href="https://ethelcym.github.io/meow-budget/icon-180.png">
 <title>喵喵記帳｜獨立雲端測試版</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
@@ -25,9 +25,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 </style>
 </head>
 <body>
-<div style="position:sticky;top:0;z-index:99;background:#fff3cd;color:#795500;text-align:center;font-size:12px;padding:6px;font-weight:700">🧪 獨立雲端測試版｜只連接 meow-budget-test｜勿使用正式帳戶密碼</div>
+<div style="position:sticky;top:0;z-index:99;background:#fff3cd;color:#795500;text-align:center;font-size:12px;padding:6px;font-weight:700">🧪 身份設定測試版｜本機示範資料｜不連接正式雲端</div>
 
-<div id="auth-gate" class="fixed inset-0 z-[100] bg-brand-800/95 p-4 flex items-center justify-center">
+<div id="auth-gate" class="hidden fixed inset-0 z-[100] bg-brand-800/95 p-4 flex items-center justify-center">
   <div class="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl space-y-4">
     <div class="text-center"><div class="text-4xl">🐱💚</div><h1 class="text-xl font-extrabold mt-2">喵喵記帳・雲端版</h1><p class="text-xs text-slate-500 mt-1">雙人登入・共同同步</p></div>
     <div id="auth-config-warning" class="hidden text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3">尚未設定 Supabase。請先按下載套件內 README 完成設定，再使用雲端登入。</div>
@@ -66,6 +66,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div id="add-warn" class="space-y-2"></div>
       <div id="type-seg" class="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl"></div>
       <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100 space-y-3">
+        <div><label for="tx-amount" class="text-xs font-semibold text-slate-500">金額 ($)</label><input type="number" inputmode="decimal" min="0.01" step="0.1" id="tx-amount" placeholder="0.00" class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-2xl font-bold focus:outline-none focus:border-brand-600"></div>
         <div id="edit-note" class="hidden text-xs bg-amber-50 text-amber-800 rounded-xl p-2 flex justify-between"><span>✏️ 編輯中</span><button type="button" onclick="cancelEdit()" class="font-bold underline">取消</button></div>
         <div><label class="text-xs font-semibold text-slate-500">帳目歸屬</label><div id="group-seg" class="grid grid-cols-3 gap-2 mt-1"></div></div>
         <div id="payer-box" class="hidden"><label class="text-xs font-semibold text-slate-500">💳 實際付款人（用嚟結算）</label><div id="payer-seg" class="grid grid-cols-2 gap-2 mt-1"></div></div>
@@ -78,12 +79,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
           </div>
           <div id="split-hint" class="text-[11px] text-slate-500">共同開支預設由雙方平均分攤。</div>
         </div>
-        <div><label for="tx-amount" class="text-xs font-semibold text-slate-500">金額 ($)</label><input type="number" inputmode="decimal" min="0.01" step="0.1" id="tx-amount" placeholder="0.00" class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-2xl font-bold focus:outline-none focus:border-brand-600"></div>
         <div><label class="text-xs font-semibold text-slate-500">主分類</label><div id="cat-chips" class="grid grid-cols-3 gap-2 mt-1 max-h-48 overflow-y-auto hs p-1"></div></div>
         <div id="sub-box" class="hidden bg-brand-50/40 p-3 rounded-2xl border border-brand-100 space-y-2"><div class="text-xs font-bold text-brand-800">🔀 想再細分嗎？</div><div id="sub-chips" class="flex flex-wrap gap-2"></div></div>
         <div><label for="tx-date" class="text-xs font-semibold text-slate-500">日期</label><input type="date" id="tx-date" onchange="renderAlerts()" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm"></div>
         <div><label for="tx-note" class="text-xs font-semibold text-slate-500">備註/商戶</label><input type="text" id="tx-note" maxlength="200" placeholder="例如: 日式拉麵" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm"></div>
-        <button type="button" id="submit-btn" onclick="submitTx()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-2xl shadow-lg active:scale-[.99]">✓ 確定記帳</button>
+        <div id="inline-recurring" class="rounded-2xl border border-brand-100 bg-brand-50/40 p-3 space-y-2">
+          <label class="flex items-center gap-2 text-sm font-semibold"><input id="tx-repeat" type="checkbox" onchange="toggleInlineRecurring()" class="w-4 h-4 accent-green-700"> 🔁 設定為週期性交易</label>
+          <div id="tx-repeat-options" class="hidden space-y-2">
+            <label class="block text-xs font-semibold text-slate-600" for="tx-repeat-frequency">重複頻率</label>
+            <select id="tx-repeat-frequency" class="w-full bg-white border border-slate-200 rounded-xl p-2 text-sm"><option value="monthly">每個月</option><option value="weekly">每星期</option><option value="yearly">每年</option></select>
+            <label class="block text-xs font-semibold text-slate-600" for="tx-repeat-end">結束日期（可留空）</label>
+            <input type="date" id="tx-repeat-end" class="w-full bg-white border border-slate-200 rounded-xl p-2 text-sm">
+            <p class="text-[11px] text-slate-500">本次帳目即時入帳；下次起到期會列為「待確認交易」，確認後才入帳。</p>
+          </div>
+        </div>
+        
       </div>
     </section>
 
@@ -133,6 +143,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button type="button" onclick="resetAll()" class="w-full py-2.5 bg-red-50 text-red-600 font-bold text-xs rounded-xl border border-red-200">↺ 重置範例數據</button>
     </section>
   </main>
+  <div id="add-submit-bar" class="shrink-0 bg-white border-t border-slate-200 px-4 py-2"><button type="button" id="submit-btn" onclick="submitTx()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-2xl shadow-lg active:scale-[.99]">✓ 確定記帳</button></div>
   <nav id="nav" aria-label="主選單" class="shrink-0 bg-white border-t border-slate-200 py-2 px-3 grid grid-cols-5 text-center" style="padding-bottom:calc(.5rem + env(safe-area-inset-bottom,0px))"></nav>
 </div>
 
@@ -180,8 +191,8 @@ function normalizeState(s){
  if(!Array.isArray(s.repayments))s.repayments=[];
  if(!Array.isArray(s.recurring))s.recurring=[];
  if(!Array.isArray(s.planned))s.planned=[];
- const recurringIds=new Set();s.recurring.forEach(r=>{if(!r||typeof r.id!=='string'||recurringIds.has(r.id)||!['weekly','monthly','yearly'].includes(r.frequency)||!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(r.nextDue)||!(r.endDate===null||r.endDate===undefined||/^\d{4}-\d{2}-\d{2}$/.test(r.endDate))||!catIds.has(r.categoryId)||!G.includes(r.group)||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0)throw new Error('週期交易資料不完整');recurringIds.add(r.id);r.amount=Number(r.amount);if(r.endDate==='')r.endDate=null;if(!r.note)r.note='';if(!r.type)r.type='expense';if(r.type!=='expense'&&r.type!=='income')throw new Error('週期交易類型不正確');if(r.type==='expense'&&!P.includes(r.payer))r.payer='Mrs Meow';if(r.type==='income')r.payer=null;});
- const plannedIds=new Set();s.planned.forEach(p=>{if(!p||typeof p.id!=='string'||plannedIds.has(p.id)||!recurringIds.has(p.recurringId)||!/^\d{4}-\d{2}-\d{2}$/.test(p.dueDate)||!Number.isFinite(Number(p.amount))||Number(p.amount)<=0||!['planned','posted'].includes(p.status))throw new Error('預設交易資料不完整');plannedIds.add(p.id);p.amount=Number(p.amount)});
+ const recurringIds=new Set();s.recurring.forEach(r=>{if(!r||typeof r.id!=='string'||recurringIds.has(r.id)||!['weekly','monthly','yearly'].includes(r.frequency)||!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(r.nextDue)||!(r.endDate===null||r.endDate===undefined||/^\d{4}-\d{2}-\d{2}$/.test(r.endDate))||!catIds.has(r.categoryId)||!G.includes(r.group)||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0)throw new Error('週期交易資料不完整');recurringIds.add(r.id);r.amount=Number(r.amount);if(r.endDate==='')r.endDate=null;if(r.shares!=null){const a=Number(r.shares['Mrs Meow']),b=Number(r.shares['Mr Meow']);if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<0||Math.round(a*100)+Math.round(b*100)!==Math.round(r.amount*100))throw new Error('週期分攤資料不正確');r.shares={'Mrs Meow':Math.round(a*100)/100,'Mr Meow':Math.round(b*100)/100}}if(!r.note)r.note='';if(!r.type)r.type='expense';if(r.type!=='expense'&&r.type!=='income')throw new Error('週期交易類型不正確');if(r.type==='expense'&&!P.includes(r.payer))r.payer='Mrs Meow';if(r.type==='income')r.payer=null;});
+ const plannedIds=new Set();s.planned.forEach(p=>{if(!p||typeof p.id!=='string'||plannedIds.has(p.id)||!recurringIds.has(p.recurringId)||!/^\d{4}-\d{2}-\d{2}$/.test(p.dueDate)||!Number.isFinite(Number(p.amount))||Number(p.amount)<=0||!['planned','posted'].includes(p.status))throw new Error('預設交易資料不完整');plannedIds.add(p.id);p.amount=Number(p.amount);if(p.shares!=null){const a=Number(p.shares['Mrs Meow']),b=Number(p.shares['Mr Meow']);if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<0||Math.round(a*100)+Math.round(b*100)!==Math.round(p.amount*100))throw new Error('待確認分攤資料不正確');p.shares={'Mrs Meow':Math.round(a*100)/100,'Mr Meow':Math.round(b*100)/100}}});
  const repaymentIds=new Set();
  s.repayments.forEach(r=>{
   if(!r||typeof r.id!=='string'||repaymentIds.has(r.id)||!P.includes(r.from)||!P.includes(r.to)||r.from===r.to||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0||typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))throw new Error('還款資料不完整');
@@ -364,12 +375,13 @@ const seg=(items,act,fn)=>items.map(i=>`<button type="button" onclick="${fn}('${
 const catPath=t=>{const m=cat(t.categoryId)||{name:'未知分類'},s=cat(t.subCategoryId);return s?`${m.name} > ${s.name}`:m.name};
 let tt;
 function toast(msg,warn=false){$('toast-msg').textContent=(warn?'⚠️ ':'✅ ')+msg;$('toast').classList.add('on');clearTimeout(tt);tt=setTimeout(()=>$('toast').classList.remove('on'),3500)}
-function switchTab(t){U.tab=t;U.limit=50;render()}
+function switchTab(t){const entering=t==='add'&&U.tab!=='add';U.tab=t;U.limit=50;render();if(entering){const main=document.querySelector('main');if(main)main.scrollTop=0;setTimeout(()=>{if(U.tab==='add')$('tx-amount').focus({preventScroll:true})},100)}}
 function shiftMonth(d){let[y,m]=U.month.split('-').map(Number);m+=d;if(m<1){m=12;y--}if(m>12){m=1;y++}U.month=`${y}-${pad(m)}`;render()}
 function render(){
  TABS.forEach(([k])=> $('view-'+k).classList.toggle('hidden',k!==U.tab));
  $('nav').innerHTML=TABS.map(([k,i,n])=>`<button type="button" onclick="switchTab('${k}')" aria-current="${k===U.tab?'page':'false'}" class="flex flex-col items-center py-1 ${k===U.tab?'text-brand-600 font-bold':'text-slate-400'}"><span class="text-lg">${i}</span><span class="text-[10px]">${n}</span></button>`).join('');
  $('monthbar').classList.toggle('hidden',!['budget','records','reports'].includes(U.tab));
+ $('add-submit-bar').classList.toggle('hidden',U.tab!=='add');
  const[y,m]=U.month.split('-');$('month-label').textContent=`${y}年${+m}月`;
  ({add:renderAdd,budget:renderBudget,records:renderRecords,reports:renderReports,settings:renderSettings})[U.tab]();
 }
@@ -400,13 +412,17 @@ function renderAlerts(){
  $('banner').classList.toggle('hidden',!w.length);
  if(w.length)$('banner-t').textContent=`【${w[0].g} - ${w[0].name}】${w[0].danger?'已爆預算':'預算達 '+Math.round(w[0].r*100)+'%'}`;
 }
-function resetForm(){U.editId=null;U.sub=null;if(U.type==='expense'){U.group=myRole;U.payer=myRole;U.splitMode='equal'};$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
+function toggleInlineRecurring(){ $('tx-repeat-options').classList.toggle('hidden',!$('tx-repeat').checked) }
+function resetForm(){ $('tx-repeat').checked=false;$('tx-repeat-frequency').value='monthly';$('tx-repeat-end').value='';toggleInlineRecurring();U.editId=null;U.sub=null;if(U.type==='expense'){U.group=myRole;U.payer=myRole;U.splitMode='equal'};$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
 function cancelEdit(){resetForm();renderAdd()}
 function submitTx(){
+ const repeatEnabled=!U.editId&&$('tx-repeat').checked;
+ const repeatFrequency=$('tx-repeat-frequency').value,repeatEnd=$('tx-repeat-end').value;
  const amount=Number($('tx-amount').value),date=$('tx-date').value||ld(),note=$('tx-note').value.trim();
  if(!Number.isFinite(amount)||amount<=0)return toast('請輸入大於 0 嘅有效金額！',true);
  if(!U.cat||!cat(U.cat)||cat(U.cat).archived)return toast('請選擇有效分類！',true);
  if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return toast('請選擇有效日期！',true);
+ if(repeatEnabled&&repeatEnd&&(!dateOnly(repeatEnd)||dateStr(dateOnly(repeatEnd))!==repeatEnd||repeatEnd<date))return toast('週期結束日期不可早於本次交易日期',true);
  if(U.sub&&(!cat(U.sub)||cat(U.sub).parentId!==U.cat||cat(U.sub).archived))U.sub=null;
  let shares=null;
  if(U.type==='expense'){
@@ -418,6 +434,13 @@ function submitTx(){
    }else{const a=Math.floor(Math.round(amount*100)/2)/100;shares={'Mrs Meow':a,'Mr Meow':Math.round(amount*100)/100-a};}
   }else shares={'Mrs Meow':U.group==='Mrs Meow'?amount:0,'Mr Meow':U.group==='Mr Meow'?amount:0};
  }
+ const oldRecurring=S.recurring.slice();
+ let recurring=null;
+ if(repeatEnabled){
+  if(!['weekly','monthly','yearly'].includes(repeatFrequency))return toast('週期頻率不正確',true);
+  const start=dateOnly(date);
+  recurring={id:uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,amount:Math.round(amount*100)/100,shares:shares?{...shares}:null,categoryId:U.cat,note,frequency:repeatFrequency,startDate:date,nextDue:nextOccurrence(date,repeatFrequency,start.getDate(),start.getMonth()),anchorDay:start.getDate(),anchorMonth:start.getMonth(),endDate:repeatEnd||null,paused:false};
+ }
  const tx={id:U.editId||uid(),type:U.type,group:U.group,payer:U.type==='expense'?U.payer:null,shares,amount,categoryId:U.cat,subCategoryId:U.sub,date,note};
  if(U.saving)return;
  U.saving=true;
@@ -427,7 +450,8 @@ function submitTx(){
   if(previous&&previous.recurringId){tx.recurringId=previous.recurringId;tx.recurringDueDate=previous.recurringDueDate}
   S.tx=S.tx.map(t=>t.id===U.editId?tx:t);
  }else S.tx.unshift(tx);
- if(!save()){S.tx=oldTx;U.saving=false;return}
+ if(recurring)S.recurring.push(recurring);
+ if(!save()){S.tx=oldTx;S.recurring=oldRecurring;U.saving=false;return}
  const main=cat(U.cat),label=U.sub?`${main.name} > ${cat(U.sub).name}`:main.name;
  let message=`${wasEdit?'已更新':'已記錄'} ${label} ${money(amount)}`,warn=false;
  if(tx.type==='expense'){const m=date.slice(0,7),targets=tx.group==='共同'?P:[tx.group];for(const g of targets){const lim=Number((S.budgets[g]||{})[main.id])||0;if(lim>0){const s=spent(g,main.id,m),rem=lim-s;if(rem<0){message=`已記帳！【${g} - ${main.name}】超額 ${money(Math.abs(rem))}！`;warn=true;break}else if(s/lim>=.8){message=`已記帳！【${g} - ${main.name}】預算達 ${Math.round(s/lim*100)}%，尚餘 ${money(rem)}`;warn=true}}}}
@@ -455,7 +479,7 @@ function renderRecords(){
  if(list.length>shown.length)html+=`<button type="button" onclick="U.limit+=50;renderRecords()" class="w-full py-2 text-xs font-bold text-brand-700 bg-brand-50 rounded-xl">載入更多（尚有 ${list.length-shown.length} 筆）</button>`;
  $('rec-list').innerHTML=html;
 }
-function editTx(id){const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.group==='共同'&&(!t.shares||Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001)?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
+function editTx(id){$('tx-repeat').checked=false;toggleInlineRecurring();const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.group==='共同'&&(!t.shares||Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001)?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
 function delTx(id){
  if(!confirm('確定刪除此筆記帳？'))return;
  const oldTx=S.tx,oldPlanned=S.planned;
@@ -525,7 +549,7 @@ function materializeDueRecurring(today=ld()){
   let guard=0;
   while(r.nextDue<=today&&(!r.endDate||r.nextDue<=r.endDate)&&guard++<500){
    if(!S.planned.some(p=>p.recurringId===r.id&&p.dueDate===r.nextDue)){
-    S.planned.push({id:uid(),recurringId:r.id,dueDate:r.nextDue,type:r.type,group:r.group,payer:r.payer||null,amount:r.amount,categoryId:r.categoryId,subCategoryId:null,note:r.note||'',status:'planned'});
+    S.planned.push({id:uid(),recurringId:r.id,dueDate:r.nextDue,type:r.type,group:r.group,payer:r.payer||null,amount:r.amount,shares:r.shares?{...r.shares}:null,categoryId:r.categoryId,subCategoryId:null,note:r.note||'',status:'planned'});
     created++;
    }
    r.nextDue=nextOccurrence(r.nextDue,r.frequency,r.anchorDay,r.anchorMonth);
@@ -567,7 +591,7 @@ function postPlanned(id){
  if(!cat(p.categoryId)||cat(p.categoryId).archived)return toast('原分類已封存，請先還原分類再入帳',true);
  if(S.tx.some(t=>t.recurringId===p.recurringId&&t.recurringDueDate===p.dueDate))return toast('已經入帳，避免重複記錄',true);
  const tx={id:uid(),type:p.type,group:p.group,payer:p.type==='expense'?p.payer:null,amount:p.amount,categoryId:p.categoryId,subCategoryId:null,date:p.dueDate,note:p.note,recurringId:p.recurringId,recurringDueDate:p.dueDate};
- if(p.type==='expense'){if(p.group==='共同')tx.shares={'Mrs Meow':Math.floor(Math.round(p.amount*100)/2)/100,'Mr Meow':(Math.round(p.amount*100)-Math.floor(Math.round(p.amount*100)/2))/100};else tx.shares={ 'Mrs Meow':p.group==='Mrs Meow'?p.amount:0,'Mr Meow':p.group==='Mr Meow'?p.amount:0};}
+ if(p.type==='expense'){if(p.group==='共同'){const cents=Math.round(p.amount*100),a=Math.round(Number(p.shares?.['Mrs Meow'])*100),b=Math.round(Number(p.shares?.['Mr Meow'])*100);tx.shares=Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b>=0&&a+b===cents?{'Mrs Meow':a/100,'Mr Meow':b/100}:{'Mrs Meow':Math.floor(cents/2)/100,'Mr Meow':(cents-Math.floor(cents/2))/100};}else tx.shares={ 'Mrs Meow':p.group==='Mrs Meow'?p.amount:0,'Mr Meow':p.group==='Mr Meow'?p.amount:0};}
  S.tx.push(tx);p.status='posted';
  if(!save()){S.tx=S.tx.filter(t=>t.id!==tx.id);p.status='planned';return}
  toast('已確認入帳');if(navigator.vibrate)navigator.vibrate(12);renderSettings()
@@ -612,8 +636,8 @@ function resetAll(){if(!confirm('確定要重置所有數據並恢復範例數�
 $('tx-date').value=ld();
 loadMyRole();
 render();
-initCloud();
+// Standalone preview: no cloud login, no remote sync.
 </script>
-<!-- Service worker disabled for isolated cloud test -->
+<!-- Service worker disabled for isolated preview -->
 </body>
 </html>
