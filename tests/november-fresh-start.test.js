@@ -49,3 +49,29 @@ test('fresh start preserves household configuration, identity and preferences',(
  assert.equal(cleaned.preferences.theme,'light');
  for(const key of ['tx','repayments','recurring','planned'])assert.deepEqual(JSON.parse(JSON.stringify(cleaned[key])),[]);
 });
+
+test('fresh-start helper works with the REAL normalizeState and linked recurring/planned records',()=>{
+ const normalStart=html.indexOf('function normalizeState(s)');
+ const normalEnd=html.indexOf('function load()',normalStart);
+ assert.ok(normalStart>=0&&normalEnd>normalStart,'real state normalizer found');
+ const context={G:['共同','Mrs Meow','Mr Meow'],P:['Mrs Meow','Mr Meow']};
+ vm.createContext(context);
+ vm.runInContext(html.slice(normalStart,normalEnd),context);
+ const actual=vm.runInContext('('+html.slice(start,end).trim()+')',context);
+ const sample={
+  cats:[{id:'food',name:'Food',type:'expense'}],
+  budgets:{'共同':{food:1000},'Mrs Meow':{},'Mr Meow':{}},
+  tx:[{id:'trial',type:'expense',group:'共同',amount:100,date:'2026-10-29',categoryId:'food',payer:'Mrs Meow',shares:{'Mrs Meow':50,'Mr Meow':50}}],
+  recurring:[{id:'rec1',frequency:'monthly',startDate:'2026-10-01',nextDue:'2026-11-01',categoryId:'food',group:'共同',amount:100,payer:'Mrs Meow'}],
+  planned:[{id:'plan1',recurringId:'rec1',dueDate:'2026-11-01',amount:100,status:'planned'}],
+  repayments:[{id:'rep1',from:'Mr Meow',to:'Mrs Meow',amount:50,date:'2026-10-29'}],
+  customSetting:{review:'monthly'}
+ };
+ const result=actual(sample);
+ for(const k of ['tx','recurring','planned','repayments'])assert.equal(result[k].length,0,k);
+ assert.equal(result.budgets['共同'].food,1000);
+ assert.equal(result.cats[0].name,'Food');
+ assert.equal(result.customSetting.review,'monthly');
+ assert.equal(sample.tx.length,1,'original remains unchanged');
+ assert.equal(sample.recurring.length,1,'original recurring remains unchanged');
+});
