@@ -28,3 +28,10 @@ Status: preparation only. NO production deployment, database migration, or delet
 
 ## Important
 A JSON import overwrites entire state; do not use it as a conflict merge. The isolated test data must never be imported to production.
+## Verification update — 2026-10-29
+- GitHub Actions isolated offline-browser workflow run 40792840284 completed successfully after test auth-overlay fix (commit 3fab3bec).
+- This validates browser smoke tests, NOT live production RLS, production migrations, or actual transaction cleanup.
+- Inspected cloud-test.html: `defaults()` includes seven demo transactions; `resetAll()` restores defaults, so it must NOT be used for November cutover.
+- App state contains `tx`, `cats`, `budgets`, `repayments`, `recurring`, and `planned`. A safe fresh-start operation must explicitly decide the fate of `repayments`, `recurring`, and `planned` to prevent old settlements or automatic recreation of trial entries.
+- `ROLE_KEY` is device-local and user-scoped; do not clear local storage wholesale.
+- Production release remains blocked until schema/permissions inspection, backup and explicit approval.
