@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches: ['feature/**']
+  pull_request:
+    branches: [main]
 jobs:
   validate-fresh-start:
     runs-on: ubuntu-latest
@@ -13,3 +15,5 @@ jobs:
           node-version: '22'
       - name: Run November fresh-start safety unit tests
         run: node --test tests/november-fresh-start.test.js
+      - name: Run synchronization and staged migration safety tests
+        run: node --test tests/sync-concurrency.test.js
