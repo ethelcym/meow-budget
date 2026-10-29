@@ -1,12 +1,8 @@
 name: November fresh-start safety tests
 on:
+  workflow_dispatch:
   push:
     branches: ['feature/**']
-    paths:
-      - 'cloud-test.html'
-      - 'tests/november-fresh-start.test.js'
-      - '.github/workflows/november-fresh-start.yml'
-  workflow_dispatch:
 jobs:
   validate-fresh-start:
     runs-on: ubuntu-latest
