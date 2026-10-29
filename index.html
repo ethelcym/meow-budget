@@ -314,6 +314,31 @@ function scheduleCloudSave(){
   finally{cloudBusy=false;if(cloudSaveQueued&&!cloudConflict){cloudSaveQueued=false;scheduleCloudSave()}}
  },700);
 }
+// Polling fallback for iOS Safari when Realtime websocket events are delayed or suspended.
+let cloudPollTimer=null;
+async function pollCloudRevision(){
+ if(!cloudClient||!cloudUser||!householdId||cloudBusy||cloudLocalDirty||cloudConflict||document.hidden)return;
+ try{
+  const {data,error}=await cloudClient.from('app_state').select('revision').eq('household_id',householdId).maybeSingle();
+  if(error||!data||Number(data.revision)<=Number(cloudRevision||0))return;
+  const {data:latest,error:readError}=await cloudClient.from('app_state').select('state,revision').eq('household_id',householdId).single();
+  if(readError||!latest||Number(latest.revision)<=Number(cloudRevision||0))return;
+  if(cloudLocalDirty||cloudBusy||cloudConflict)return;
+  S=normalizeState(latest.state);cloudRevision=Number(latest.revision);
+  localStorage.setItem(K,JSON.stringify(S));render();setCloudStatus('已接收另一部裝置更新');
+ }catch(e){console.error('雲端輪詢失敗',e)}
+}
+function startCloudPolling(){
+ if(cloudPollTimer)clearInterval(cloudPollTimer);
+ cloudPollTimer=setInterval(()=>{
+  if(cloudLocalDirty&&!cloudConflict&&!cloudBusy&&cloudClient&&cloudUser&&householdId&&navigator.onLine)scheduleCloudSave();
+  else pollCloudRevision();
+ },5000);
+}
+window.addEventListener('online',()=>{
+ if(cloudLocalDirty&&!cloudConflict&&cloudClient&&cloudUser&&householdId)scheduleCloudSave();
+});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollCloudRevision()});
 function subscribeCloud(){
  if(!cloudClient||!householdId)return;
  if(cloudChannel)cloudClient.removeChannel(cloudChannel);
@@ -337,9 +362,11 @@ function subscribeCloud(){
    catch(e){console.error('雲端資料格式不正確',e)}
   }
  }).subscribe();
+ startCloudPolling();
 }
 async function signOutCloud(){
  if(!cloudClient)return;
+ if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null;}
  if(!confirm('確定登出？未同步資料請先確認已備份。'))return;
  if(cloudChannel)await cloudClient.removeChannel(cloudChannel);
  await cloudClient.auth.signOut();cloudUser=null;householdId=null;loadMyRole();showAuth();
