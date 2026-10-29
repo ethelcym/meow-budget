@@ -29,7 +29,10 @@ Status: preparation only. No production SQL has been applied. Requires a verifie
 - Do not simply restore old app_state over concurrent writes; stop clients and restore with an approved controlled revision/backup procedure.
 - Rollback SQL and recovery path must be rehearsed in the isolated project before production changes.
 
-## Test status
+## Test status (2026-10-29)
 
-- GitHub offline browser workflow run 40793175968 succeeded.
-- Fresh-start Node tests added; check the separate Validate Meow Budget workflow before calling them passed.
+- GitHub offline browser workflow run 40797234049 succeeded on commit 8201632177d6baa7042e7c2ea0db0e92b97b0f56.
+- `.github/workflows/november-fresh-start.yml` now runs the Node fresh-start tests on every feature branch push, but **no independent successful Node workflow run has yet been verified**. Do not conflate browser smoke success with Node test success.
+- Before production cutover, inspect the dedicated Node workflow run, exercise actual normalizeState and cloud sync integration (current unit test uses a stub), and verify restore of a full isolated backup.
+- User explicitly opted out of Shareroo historical import; it is out of scope and not a release blocker.
+- The reset must remain opt-in and separately authorized; no scheduled or implicit clearing of production app_state.
