@@ -19,3 +19,10 @@ Read-only advisor scan of production project `hennrsqbxvrwmdizdnzg`. No producti
 1. Read-only inspect production function definitions, RLS, privileges via an approved path.
 2. Prepare and test incremental production migration in an isolated staging environment.
 3. Backup production ledger and establish rollback; ask for separate user approval before writes.
+
+## Read-only schema inspection follow-up — 2026-10-29
+- Production public tables: `households` (1 row), `household_members` (2 rows), `app_state` (1 row). Counts only; no ledger or invite codes retrieved.
+- All three tables have RLS enabled.
+- Production `app_state` columns are `household_id`, `state`, `updated_by`, `updated_at`; `revision` is absent. The revision-checked sync RPC migration is therefore a release prerequisite, subject to reviewed backup, grant audit and explicit approval.
+- Supabase migration listing returned no entries; this does not establish that the existing schema is absent, and baseline migration must not be applied.
+- Browser smoke CI run 40793175968 succeeded. New November transform unit tests were committed, but that browser workflow alone does not prove those unit tests ran.
