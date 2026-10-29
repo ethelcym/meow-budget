@@ -6,7 +6,7 @@ const html=fs.readFileSync('cloud-test.html','utf8');
 const start=html.indexOf('function buildFreshStartState(source)');
 const end=html.indexOf('function resetAll()',start);
 assert.ok(start>=0&&end>start,'pure cutover helper must exist');
-const transform=vm.runInNewContext('('+html.slice(start,end).trim()+')',{normalizeState:s=>s});
+const transform=vm.runInNewContext('('+html.slice(start,end).trim()+')',{normalizeState:s=>{if(!s||!Array.isArray(s.tx)||!Array.isArray(s.cats)||!s.budgets)throw new Error('invalid backup');return s;}});
 const original={cats:[{id:'food',name:'Food',type:'expense'}],budgets:{'共同':{food:1000},'Mrs Meow':{},'Mr Meow':{}},tx:[{id:'test',amount:1}],repayments:[{id:'settlement'}],recurring:[{id:'monthly'}],planned:[{id:'future'}],version:1,customSetting:'retain'};
 test('November transform removes trial ledger, settlements, recurring and planned entries',()=>{
  const cleaned=transform(original);
@@ -24,4 +24,15 @@ test('November transform is repeatable and does not restore demo entries',()=>{
 test('cutover helper is not automatically invoked or attached to reset button',()=>{
  assert.equal((html.match(/buildFreshStartState\(/g)||[]).length,1);
  assert.match(html,/onclick="resetAll\(\)"/);
+});
+
+test('malformed input is rejected rather than cleared',()=>{
+ assert.throws(()=>transform({tx:[],cats:null,budgets:{}}),/invalid backup/);
+});
+test('the helper does not mutate nested original settings',()=>{
+ const result=transform(original);
+ result.budgets['共同'].food=500;
+ result.cats[0].name='changed';
+ assert.equal(original.budgets['共同'].food,1000);
+ assert.equal(original.cats[0].name,'Food');
 });
