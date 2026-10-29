@@ -121,3 +121,13 @@ test('cloud save never silently overwrites a stale revision', () => {
  assert.match(code,/if\(cloudConflict\)return/);
  assert.match(code,/if\(JSON\.stringify\(S\)===snapshot\)/);
 });
+
+test('release client retries offline writes and polls missed iOS realtime updates', () => {
+ assert.match(html,/async function pollCloudRevision\(\)/);
+ assert.match(html,/function startCloudPolling\(\)/);
+ assert.match(html,/window\.addEventListener\('online'/);
+ assert.match(html,/if\(cloudLocalDirty&&!cloudConflict&&!cloudBusy&&cloudClient&&cloudUser&&householdId&&navigator\.onLine\)scheduleCloudSave\(\)/);
+ assert.match(html,/if\(cloudLocalDirty\|\|cloudBusy\|\|cloudConflict\)return/);
+ assert.match(html,/startCloudPolling\(\);/);
+ assert.match(html,/clearInterval\(cloudPollTimer\)/);
+});
