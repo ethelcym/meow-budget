@@ -69,3 +69,7 @@ Read-only inspection of isolated test project confirms: one household, two house
 ## Latest CI evidence — 2026-10-29
 
 GitHub PR-triggered `Meow offline smoke tests` run [40804663895](https://github.com/ethelcym/meow-budget/actions/runs/40804663895) completed successfully for commit `10f85d701b60691bf37a585cbdf26bd2d6553763`. This is browser smoke coverage only. The new `sync-concurrency.test.js` assertion and the November fresh-start Node suite **have not been independently verified by this run**; do not mark those gates passed without a specific Node job log or local execution. No production change authorized.
+
+## Latest browser run — 2026-10-29
+
+[Offline browser run 40804893127](https://github.com/ethelcym/meow-budget/actions/runs/40804893127) completed successfully on `c408c00d4bc1ecd5a57d8e0be9746015b0638298`. Inspected jobs: only `offline-browser` ran; its isolated Playwright smoke step succeeded. **This run does not execute Node.js safety tests**, despite being green. Keep November fresh-start and staged migration Node gates OPEN until their execution logs are inspected. No production cutover or data cleanup authorized.
