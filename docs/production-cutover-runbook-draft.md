@@ -45,3 +45,9 @@ Status: preparation only. No production SQL has been applied. Requires a verifie
 - Confirm all existing app_state rows receive revision 1, JSON state is byte-for-byte equivalent, and old client writes still work only during the temporary compatibility phase.
 - The older `supabase/migrations/202610240001_add_app_state_revision.sql` is **not safe to execute after** the additive draft as an unreviewed repeat migration; its CREATE OR REPLACE and REVOKE statements must be reconciled into a separate enforcement step.
 - Rehearse stale-client handling and rollback in test before seeking production approval.
+
+## Isolated test project read-only audit — 2026-10-29
+
+Project `kixnyvgqtznjzdrvbweb` (NOT production) was inspected without any write. It has 1 household, 2 memberships, 1 app_state row; RLS is enabled on all three public tables. `app_state.revision` exists; `public.save_app_state(uuid,bigint,jsonb)` exists. Effective role checks: `authenticated` has EXECUTE on CAS RPC and does **not** have direct UPDATE on app_state. These are schema/privilege checks only; no live authenticated CAS roundtrip, conflict test, backup restore, or security penetration test was performed in this audit.
+
+The isolated test project is already in enforced CAS state. **Do not apply the additive draft there blindly**, and do not assume its current revision schema matches production. Compare each environment's migration state before any rehearsal. Production remains unchanged and requires explicit approval for writes.
