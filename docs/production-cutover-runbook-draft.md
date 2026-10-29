@@ -36,3 +36,12 @@ Status: preparation only. No production SQL has been applied. Requires a verifie
 - Before production cutover, inspect the dedicated Node workflow run, exercise actual normalizeState and cloud sync integration (current unit test uses a stub), and verify restore of a full isolated backup.
 - User explicitly opted out of Shareroo historical import; it is out of scope and not a release blocker.
 - The reset must remain opt-in and separately authorized; no scheduled or implicit clearing of production app_state.
+
+## Additive migration review (draft, not executed)
+
+- Prepared `docs/sql/production-additive-cas-stage-draft.sql` to add `app_state.revision` and a membership-checked CAS RPC without revoking legacy UPDATE. This is a proposal, not a tested migration.
+- **Security limitation during additive stage:** while authenticated clients retain direct UPDATE, CAS can still be bypassed by an old/stale client. Keep the compatibility window short and require coordinated client cutover; never describe this stage as full conflict protection.
+- Confirm function owner, SECURITY DEFINER permissions, and actual execution rights in an isolated project; compare before/after effective grants and RLS.
+- Confirm all existing app_state rows receive revision 1, JSON state is byte-for-byte equivalent, and old client writes still work only during the temporary compatibility phase.
+- The older `supabase/migrations/202610240001_add_app_state_revision.sql` is **not safe to execute after** the additive draft as an unreviewed repeat migration; its CREATE OR REPLACE and REVOKE statements must be reconciled into a separate enforcement step.
+- Rehearse stale-client handling and rollback in test before seeking production approval.
