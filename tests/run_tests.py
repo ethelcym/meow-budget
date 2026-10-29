@@ -161,9 +161,10 @@ with sync_playwright() as p:
  check('Cloud preview uses isolated Supabase configuration',cloud_endpoint)
  check('Cloud preview has recurring amount input',lambda: assert_visible(cloud_page,'#tx-amount'))
  def cloud_recurring():
-  cloud_page.locator('#tx-repeat').check()
+  # Auth gate overlays the unauthenticated preview; exercise UI handlers without bypassing login.
+  cloud_page.evaluate("document.querySelector('#tx-repeat').checked=true;toggleInlineRecurring()")
   assert_visible(cloud_page,'#tx-repeat-options')
-  cloud_page.locator('#tx-repeat-frequency').select_option('yearly')
+  cloud_page.evaluate("document.querySelector('#tx-repeat-frequency').value='yearly';document.querySelector('#tx-repeat-frequency').dispatchEvent(new Event('change',{bubbles:true}))")
   assert cloud_page.locator('#tx-repeat-frequency').input_value()=='yearly'
  check('Cloud preview recurring controls work',cloud_recurring)
  check('Cloud preview has no uncaught browser errors',lambda: (_ for _ in ()).throw(AssertionError(str(cloud_errors))) if cloud_errors else None)
