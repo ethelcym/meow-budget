@@ -61,3 +61,7 @@ A JSON import overwrites entire state; do not use it as a conflict merge. The is
 | Production go-live | NOT APPROVED | Requires all gates above, explicit cutover approval, and rollback plan |
 
 Do not interpret PASS on browser smoke as overall release approval. No Shareroo import is required.
+
+## Test-project CAS evidence — 2026-10-29
+
+Read-only inspection of isolated test project confirms: one household, two household members, one app_state row, RLS on all three tables, revision column and save_app_state RPC present. Effective `authenticated` permissions: RPC EXECUTE true, direct app_state UPDATE false. This validates permission wiring only, not a real signed-in concurrency test. No SQL writes performed. See `docs/production-cutover-runbook-draft.md`.
