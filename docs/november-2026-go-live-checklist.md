@@ -40,3 +40,9 @@ A JSON import overwrites entire state; do not use it as a conflict merge. The is
 - User explicitly approved clearing existing recurring expense schedules at the November fresh start; no need to preserve these templates.
 - Planned transaction records and test-derived repayments/settlements should be reviewed for clearing so that no historical test amount survives into the new ledger. Preserve categories, budgets, household membership and per-device roles.
 - This records intended future cleanup scope only; it is NOT authorization to delete immediately. Before execution, verify backup and ask for cutover approval.
+
+## User decision: no Shareroo migration (2026-10-29)
+- User decided **not to import** Shareroo historical records. No paid export/free trial, screenshot transcription, or migration workflow needed.
+- November objective is easy daily tracking and subsequent monthly spending review, not reconstructing prior history.
+- Preserve agreed November reset scope (transactions, repayments, recurring, planned) and settings (categories, budgets, household and roles).
+- Any legacy import plan is deferred and must not be part of release blockers or deployment scope.
