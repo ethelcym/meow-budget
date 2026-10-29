@@ -75,3 +75,15 @@ test('fresh-start helper works with the REAL normalizeState and linked recurring
  assert.equal(sample.tx.length,1,'original remains unchanged');
  assert.equal(sample.recurring.length,1,'original recurring remains unchanged');
 });
+
+test('real normalizer refuses invalid linked trial data rather than silently wiping it',()=>{
+ const normalStart=html.indexOf('function normalizeState(s)');
+ const normalEnd=html.indexOf('function load()',normalStart);
+ const context={G:['共同','Mrs Meow','Mr Meow'],P:['Mrs Meow','Mr Meow']};
+ vm.createContext(context);
+ vm.runInContext(html.slice(normalStart,normalEnd),context);
+ const actual=vm.runInContext('('+html.slice(start,end).trim()+')',context);
+ const invalid={cats:[{id:'food',name:'Food',type:'expense'}],budgets:{'共同':{food:1000}},tx:[],recurring:[{id:'r1',frequency:'monthly',startDate:'2026-10-01',nextDue:'2026-11-01',categoryId:'missing',group:'共同',amount:1}],planned:[],repayments:[]};
+ assert.throws(()=>actual(invalid),/週期交易資料不完整/);
+ assert.equal(invalid.recurring.length,1,'failed cutover must not mutate source');
+});
