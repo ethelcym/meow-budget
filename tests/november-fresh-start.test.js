@@ -36,3 +36,16 @@ test('the helper does not mutate nested original settings',()=>{
  assert.equal(original.budgets['共同'].food,1000);
  assert.equal(original.cats[0].name,'Food');
 });
+
+// Explicitly protect household configuration and user preferences from cutover cleanup.
+test('fresh start preserves household configuration, identity and preferences',()=>{
+ const source={...original,householdId:'household-keep',inviteCode:'invite-keep',members:[{role:'owner',user_id:'member-keep'}],role:'Mrs Meow',preferences:{currency:'HKD',theme:'light'}};
+ const cleaned=transform(source);
+ assert.equal(cleaned.householdId,'household-keep');
+ assert.equal(cleaned.inviteCode,'invite-keep');
+ assert.equal(cleaned.members[0].user_id,'member-keep');
+ assert.equal(cleaned.role,'Mrs Meow');
+ assert.equal(cleaned.preferences.currency,'HKD');
+ assert.equal(cleaned.preferences.theme,'light');
+ for(const key of ['tx','repayments','recurring','planned'])assert.deepEqual(JSON.parse(JSON.stringify(cleaned[key])),[]);
+});
