@@ -65,3 +65,7 @@ Do not interpret PASS on browser smoke as overall release approval. No Shareroo 
 ## Test-project CAS evidence — 2026-10-29
 
 Read-only inspection of isolated test project confirms: one household, two household members, one app_state row, RLS on all three tables, revision column and save_app_state RPC present. Effective `authenticated` permissions: RPC EXECUTE true, direct app_state UPDATE false. This validates permission wiring only, not a real signed-in concurrency test. No SQL writes performed. See `docs/production-cutover-runbook-draft.md`.
+
+## Latest CI evidence — 2026-10-29
+
+GitHub PR-triggered `Meow offline smoke tests` run [40804663895](https://github.com/ethelcym/meow-budget/actions/runs/40804663895) completed successfully for commit `10f85d701b60691bf37a585cbdf26bd2d6553763`. This is browser smoke coverage only. The new `sync-concurrency.test.js` assertion and the November fresh-start Node suite **have not been independently verified by this run**; do not mark those gates passed without a specific Node job log or local execution. No production change authorized.
