@@ -94,3 +94,13 @@ test('baseline creates household tables, RLS, unique user membership, and restri
 test('browser source does not include a service-role secret key', () => {
   assert.doesNotMatch(html, /service_role\s*[:=]\s*['"][^'"]+['"]/i);
 });
+
+const additive = fs.readFileSync('docs/sql/production-additive-cas-stage-draft.sql','utf8');
+test('staged production CAS draft keeps legacy UPDATE until separately approved enforcement',()=>{
+ assert.match(additive,/ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1/i);
+ assert.match(additive,/CREATE OR REPLACE FUNCTION public\.save_app_state/i);
+ assert.match(additive,/REVOKE ALL ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) FROM PUBLIC/i);
+ assert.match(additive,/GRANT EXECUTE ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) TO authenticated/i);
+ assert.doesNotMatch(additive,/REVOKE\s+UPDATE\s+ON\s+TABLE\s+public\.app_state/i);
+ assert.doesNotMatch(additive,/\b(?:TRUNCATE|DROP TABLE|DELETE FROM public\.app_state)\b/i);
+});
