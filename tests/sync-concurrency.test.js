@@ -104,3 +104,20 @@ test('staged production CAS draft keeps legacy UPDATE until separately approved 
  assert.doesNotMatch(additive,/REVOKE\s+UPDATE\s+ON\s+TABLE\s+public\.app_state/i);
  assert.doesNotMatch(additive,/\b(?:TRUNCATE|DROP TABLE|DELETE FROM public\.app_state)\b/i);
 });
+
+test('personal expense defaults follow device role and shared option stays last', () => {
+ assert.match(html, /function loadMyRole\(\)[\s\S]*?U\.group=myRole;U\.payer=myRole/);
+ assert.match(html, /function groupOrder\(\)\{return \[myRole,myRole==='Mrs Meow'\?'Mr Meow':'Mrs Meow','共同'\]\}/);
+ assert.match(html, /function setMyRole\(role\)[\s\S]*?U\.group=role;U\.payer=role/);
+});
+
+test('cloud save never silently overwrites a stale revision', () => {
+ const start=html.indexOf('function scheduleCloudSave()');
+ const end=html.indexOf('function subscribeCloud()',start);
+ assert.ok(start>=0&&end>start);
+ const code=html.slice(start,end);
+ assert.match(code,/if\(!Number\.isInteger\(expectedRevision\)\|\|expectedRevision<1\)throw/);
+ assert.match(code,/cloudConflict=true;cloudLocalDirty=true/);
+ assert.match(code,/if\(cloudConflict\)return/);
+ assert.match(code,/if\(JSON\.stringify\(S\)===snapshot\)/);
+});
