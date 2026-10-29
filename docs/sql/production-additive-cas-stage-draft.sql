@@ -36,8 +36,10 @@ BEGIN
     RAISE EXCEPTION 'INVALID_STATE';
   END IF;
 
-  -- SECURITY DEFINER is required because direct UPDATE privileges are revoked
-  -- from browser roles below. Membership is checked explicitly in this function.
+  -- SECURITY DEFINER is needed for the final CAS-only stage when direct UPDATE
+  -- privileges will be revoked. In this additive stage legacy UPDATE remains
+  -- temporarily permitted, so CAS can still be bypassed by old clients.
+  -- Membership is checked explicitly in this function.
   -- The revision predicate and UPDATE occur atomically in one statement.
   UPDATE public.app_state AS a
      SET state = p_state,
