@@ -24,5 +24,7 @@ jobs:
           Path('/tmp/meow-budget-inline.js').write_text('\n;\n'.join(scripts))
           PY
           node --check /tmp/meow-budget-inline.js
-      - name: Run settlement model tests
+      - name: Run November fresh-start safety tests
+        run: node --test tests/november-fresh-start.test.js
+      - name: Run all model and sync tests
         run: node --test tests/*.test.js
