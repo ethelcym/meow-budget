@@ -688,6 +688,16 @@ function importBackup(){
  try{const imported=normalizeState(JSON.parse($('bk').value));if(!confirm('匯入會覆蓋現有所有資料，建議先備份。確定匯入？'))return;const old=S;S=imported;if(!save()){S=old;return}resetForm();U.cat=null;toast('匯入成功');render()}
  catch(e){toast('匯入失敗：'+(e.message||'JSON 格式不正確'),true)}
 }
+// November cutover helper: pure transform only. No UI entry point and no automatic cloud write.
+// Do not execute on a live household until a verified backup and explicit cutover approval.
+function buildFreshStartState(source){
+ const clean=normalizeState(JSON.parse(JSON.stringify(source)));
+ clean.tx=[];
+ clean.repayments=[];
+ clean.recurring=[];
+ clean.planned=[];
+ return clean;
+}
 function resetAll(){if(!confirm('確定要重置所有數據並恢復範例數據？此操作不能復原，請先備份。'))return;const old=S;S=defaults();if(!save()){S=old;return}resetForm();U.cat=null;U.type='expense';U.group=myRole;U.bGroup='共同';U.rGroup='合計';toast('已恢復範例數據');render()}
 $('tx-date').value=ld();
 loadMyRole();
