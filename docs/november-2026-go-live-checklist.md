@@ -35,3 +35,8 @@ A JSON import overwrites entire state; do not use it as a conflict merge. The is
 - App state contains `tx`, `cats`, `budgets`, `repayments`, `recurring`, and `planned`. A safe fresh-start operation must explicitly decide the fate of `repayments`, `recurring`, and `planned` to prevent old settlements or automatic recreation of trial entries.
 - `ROLE_KEY` is device-local and user-scoped; do not clear local storage wholesale.
 - Production release remains blocked until schema/permissions inspection, backup and explicit approval.
+
+## User decision — 2026-10-29: recurring schedules
+- User explicitly approved clearing existing recurring expense schedules at the November fresh start; no need to preserve these templates.
+- Planned transaction records and test-derived repayments/settlements should be reviewed for clearing so that no historical test amount survives into the new ledger. Preserve categories, budgets, household membership and per-device roles.
+- This records intended future cleanup scope only; it is NOT authorization to delete immediately. Before execution, verify backup and ask for cutover approval.
