@@ -94,3 +94,40 @@ test('baseline creates household tables, RLS, unique user membership, and restri
 test('browser source does not include a service-role secret key', () => {
   assert.doesNotMatch(html, /service_role\s*[:=]\s*['"][^'"]+['"]/i);
 });
+
+const additive = fs.readFileSync('docs/sql/production-additive-cas-stage-draft.sql','utf8');
+test('staged production CAS draft keeps legacy UPDATE until separately approved enforcement',()=>{
+ assert.match(additive,/ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1/i);
+ assert.match(additive,/CREATE OR REPLACE FUNCTION public\.save_app_state/i);
+ assert.match(additive,/REVOKE ALL ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) FROM PUBLIC/i);
+ assert.match(additive,/GRANT EXECUTE ON FUNCTION public\.save_app_state\(uuid, bigint, jsonb\) TO authenticated/i);
+ assert.doesNotMatch(additive,/REVOKE\s+UPDATE\s+ON\s+TABLE\s+public\.app_state/i);
+ assert.doesNotMatch(additive,/\b(?:TRUNCATE|DROP TABLE|DELETE FROM public\.app_state)\b/i);
+});
+
+test('personal expense defaults follow device role and shared option stays last', () => {
+ assert.match(html, /function loadMyRole\(\)[\s\S]*?U\.group=myRole;U\.payer=myRole/);
+ assert.match(html, /function groupOrder\(\)\{return \[myRole,myRole==='Mrs Meow'\?'Mr Meow':'Mrs Meow','共同'\]\}/);
+ assert.match(html, /function setMyRole\(role\)[\s\S]*?U\.group=role;U\.payer=role/);
+});
+
+test('cloud save never silently overwrites a stale revision', () => {
+ const start=html.indexOf('function scheduleCloudSave()');
+ const end=html.indexOf('function subscribeCloud()',start);
+ assert.ok(start>=0&&end>start);
+ const code=html.slice(start,end);
+ assert.match(code,/if\(!Number\.isInteger\(expectedRevision\)\|\|expectedRevision<1\)throw/);
+ assert.match(code,/cloudConflict=true;cloudLocalDirty=true/);
+ assert.match(code,/if\(cloudConflict\)return/);
+ assert.match(code,/if\(JSON\.stringify\(S\)===snapshot\)/);
+});
+
+test('release client retries offline writes and polls missed iOS realtime updates', () => {
+ assert.match(html,/async function pollCloudRevision\(\)/);
+ assert.match(html,/function startCloudPolling\(\)/);
+ assert.match(html,/window\.addEventListener\('online'/);
+ assert.match(html,/if\(cloudLocalDirty&&!cloudConflict&&!cloudBusy&&cloudClient&&cloudUser&&householdId&&navigator\.onLine\)scheduleCloudSave\(\)/);
+ assert.match(html,/if\(cloudLocalDirty\|\|cloudBusy\|\|cloudConflict\)return/);
+ assert.match(html,/startCloudPolling\(\);/);
+ assert.match(html,/clearInterval\(cloudPollTimer\)/);
+});

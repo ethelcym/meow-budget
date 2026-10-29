@@ -1,0 +1,53 @@
+# Production migration runbook (DRAFT — DO NOT EXECUTE)
+
+Status: preparation only. No production SQL has been applied. Requires a verified database backup, rollback rehearsal, and separate user approval before execution.
+
+## Verified production prerequisites
+
+- Three public tables: households (1), household_members (2), app_state (1), all RLS enabled.
+- Two household memberships exist; do not touch them or invite codes.
+- app_state has no revision column, and authenticated currently has direct UPDATE.
+- Existing SELECT, INSERT and UPDATE policies on app_state check household membership.
+- The existing migration `202610240001_add_app_state_revision.sql` adds revision and CAS RPC but also immediately revokes direct UPDATE. **Applying it while older deployed clients are running could break saves.** Do not run it as-is.
+- Role grants currently include TRUNCATE, TRIGGER and REFERENCES for anon/authenticated on all three public tables. These need review and tightening; RLS does not protect TRUNCATE.
+
+## Proposed staged rollout
+
+1. **Backup and rehearsal**: export complete app_state JSON and database schema/policies/functions/grants through approved secure tooling; verify restore on isolated project. Never place personal financial data or secrets in GitHub.
+2. **Preflight**: verify table/column names, app_state row count and household ID consistency, function ownership and effective privileges; confirm users have stopped using old clients during cutover.
+3. **Additive phase**: add revision bigint NOT NULL DEFAULT 1 and create membership-checked save_app_state CAS RPC; leave legacy UPDATE privilege in place until compatible client is ready. Recheck RLS and function EXECUTE grants.
+4. **Client cutover**: deploy revision-aware client only after staged smoke tests, and confirm two-device roundtrip with real authenticated accounts. Prevent stale cached old PWA versions from writing during migration.
+5. **Enforcement phase**: only after client compatibility confirmed, revoke direct UPDATE on app_state for PUBLIC, anon, authenticated and restrict RPC EXECUTE to authenticated. Audit effective grants, not just explicit grants.
+6. **Least-privilege hardening**: review and revoke unnecessary TRUNCATE, TRIGGER and REFERENCES on households, household_members and app_state from anon/authenticated; ensure required SELECT/INSERT/UPDATE privileges still support the intended functions. Review anonymous function EXECUTE and set_updated_at search_path independently.
+7. **November reset**: after a second backup and explicit go-ahead, perform an atomic, revision-checked update of only app_state JSON keys tx, repayments, recurring, planned. Preserve cats, budgets, household and membership rows. Verify clean read on both devices and absence of automatic re-created entries.
+8. **Postflight**: verify sync, conflicts, restore readiness, login/join flow, category and budget persistence, and security advisors.
+
+## Abort/rollback rules
+
+- Stop on missing backup, unexpected row count, conflicting revision, RLS regression, broken login, or client mismatch.
+- Never run resetAll() or the test baseline migration against production.
+- Do not simply restore old app_state over concurrent writes; stop clients and restore with an approved controlled revision/backup procedure.
+- Rollback SQL and recovery path must be rehearsed in the isolated project before production changes.
+
+## Test status (2026-10-29)
+
+- GitHub offline browser workflow run 40797234049 succeeded on commit 8201632177d6baa7042e7c2ea0db0e92b97b0f56.
+- `.github/workflows/november-fresh-start.yml` now runs the Node fresh-start tests on every feature branch push, but **no independent successful Node workflow run has yet been verified**. Do not conflate browser smoke success with Node test success.
+- Before production cutover, inspect the dedicated Node workflow run, exercise actual normalizeState and cloud sync integration (current unit test uses a stub), and verify restore of a full isolated backup.
+- User explicitly opted out of Shareroo historical import; it is out of scope and not a release blocker.
+- The reset must remain opt-in and separately authorized; no scheduled or implicit clearing of production app_state.
+
+## Additive migration review (draft, not executed)
+
+- Prepared `docs/sql/production-additive-cas-stage-draft.sql` to add `app_state.revision` and a membership-checked CAS RPC without revoking legacy UPDATE. This is a proposal, not a tested migration.
+- **Security limitation during additive stage:** while authenticated clients retain direct UPDATE, CAS can still be bypassed by an old/stale client. Keep the compatibility window short and require coordinated client cutover; never describe this stage as full conflict protection.
+- Confirm function owner, SECURITY DEFINER permissions, and actual execution rights in an isolated project; compare before/after effective grants and RLS.
+- Confirm all existing app_state rows receive revision 1, JSON state is byte-for-byte equivalent, and old client writes still work only during the temporary compatibility phase.
+- The older `supabase/migrations/202610240001_add_app_state_revision.sql` is **not safe to execute after** the additive draft as an unreviewed repeat migration; its CREATE OR REPLACE and REVOKE statements must be reconciled into a separate enforcement step.
+- Rehearse stale-client handling and rollback in test before seeking production approval.
+
+## Isolated test project read-only audit — 2026-10-29
+
+Project `kixnyvgqtznjzdrvbweb` (NOT production) was inspected without any write. It has 1 household, 2 memberships, 1 app_state row; RLS is enabled on all three public tables. `app_state.revision` exists; `public.save_app_state(uuid,bigint,jsonb)` exists. Effective role checks: `authenticated` has EXECUTE on CAS RPC and does **not** have direct UPDATE on app_state. These are schema/privilege checks only; no live authenticated CAS roundtrip, conflict test, backup restore, or security penetration test was performed in this audit.
+
+The isolated test project is already in enforced CAS state. **Do not apply the additive draft there blindly**, and do not assume its current revision schema matches production. Compare each environment's migration state before any rehearsal. Production remains unchanged and requires explicit approval for writes.
