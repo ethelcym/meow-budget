@@ -5,7 +5,7 @@ Status: preparation only. NO production deployment, database migration, or delet
 ## User-approved target
 - Start fresh on 2026-11-01; current transaction records are trial data.
 - Preserve category tree, monthly budgets, household identity and membership, invitation relationship, and per-device Mr/Mrs role settings.
-- Continue using the other expense app as source of truth until explicit cutover.
+- Historical Shareroo migration is out of scope by user choice; start collecting new records only after approved cutover.
 - User agreed to a future cleanup, NOT to deleting records immediately.
 
 ## Findings (2026-10-29)
@@ -46,3 +46,18 @@ A JSON import overwrites entire state; do not use it as a conflict merge. The is
 - November objective is easy daily tracking and subsequent monthly spending review, not reconstructing prior history.
 - Preserve agreed November reset scope (transactions, repayments, recurring, planned) and settings (categories, budgets, household and roles).
 - Any legacy import plan is deferred and must not be part of release blockers or deployment scope.
+
+## Release gate evidence matrix — updated 2026-10-29
+
+| Gate | Status | Evidence / next required proof |
+|---|---|---|
+| Browser offline smoke | PASS (isolated only) | GitHub Actions run 40797441386 successful; does not prove live cloud behavior |
+| November fresh-start Node tests | UNVERIFIED | CI workflow files updated; obtain dedicated job run/step evidence, not just offline smoke result |
+| Sync and conflict regression | PARTIAL | Prior manual two-device test passed; re-run against release candidate after DB migration rehearsal |
+| Production CAS schema | BLOCKED | Production app_state lacks revision; staged migration must be tested before deployment |
+| Backup and restore | BLOCKED | Full production backup and isolated restore rehearsal not yet verified |
+| Safe November reset | PREPARED ONLY | Pure helper on isolated test page; no authorized production execution or integrated revision-checked reset |
+| Security privilege hardening | BLOCKED | Review/revoke unnecessary grants after isolated verification and approval |
+| Production go-live | NOT APPROVED | Requires all gates above, explicit cutover approval, and rollback plan |
+
+Do not interpret PASS on browser smoke as overall release approval. No Shareroo import is required.
