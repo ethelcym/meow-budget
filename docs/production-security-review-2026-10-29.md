@@ -26,3 +26,10 @@ Read-only advisor scan of production project `hennrsqbxvrwmdizdnzg`. No producti
 - Production `app_state` columns are `household_id`, `state`, `updated_by`, `updated_at`; `revision` is absent. The revision-checked sync RPC migration is therefore a release prerequisite, subject to reviewed backup, grant audit and explicit approval.
 - Supabase migration listing returned no entries; this does not establish that the existing schema is absent, and baseline migration must not be applied.
 - Browser smoke CI run 40793175968 succeeded. New November transform unit tests were committed, but that browser workflow alone does not prove those unit tests ran.
+
+## Read-only policy and grants audit — 2026-10-29
+- All current SELECT and UPDATE policies for `app_state` are restricted to `authenticated` and check `is_household_member`; UPDATE has both USING and WITH CHECK. INSERT similarly checks membership. `households` and `household_members` SELECT policies check membership.
+- Reviewed production `create_household`, `join_household` and `is_household_member` bodies. Both mutating RPCs check `auth.uid()` before writing; membership helper filters by `auth.uid()`. Advisor warnings about anonymous EXECUTE remain a hardening issue, not proof of anonymous data access.
+- **Important security finding:** information_schema.role_table_grants reports `TRUNCATE`, `TRIGGER`, and `REFERENCES` granted to both `anon` and `authenticated` on all three public tables. `TRUNCATE` is not row-filtered by RLS. Revoke unnecessary privileges in a separately approved, tested migration; do not change production now. Confirm effective permissions and role inheritance before deployment.
+- `authenticated` has direct UPDATE on `app_state` today, so the existing browser can bypass revision checks; revision RPC migration must revoke UPDATE, but deploy order must avoid breaking old clients.
+- Migration file `202610240001_add_app_state_revision.sql` is additive to state JSON and checks membership + expected revision, but currently comments refer to test-only baseline. Review and create production-specific upgrade and rollback steps before approval.
