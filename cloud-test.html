@@ -66,7 +66,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <div id="add-warn" class="space-y-2"></div>
       <div id="type-seg" class="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl"></div>
       <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100 space-y-3">
-        <div><label for="tx-amount" class="text-xs font-semibold text-slate-500">金額 ($)</label><input type="text" inputmode="none" readonly onclick="showAmountPad()" id="tx-amount" placeholder="0.00" class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-2xl font-bold focus:outline-none focus:border-brand-600"><div id="amount-result" class="text-right text-sm text-brand-700"></div></div>
+        <div><label for="tx-amount" class="text-xs font-semibold text-slate-500">金額 ($)</label><input type="number" inputmode="decimal" min="0.01" step="0.1" id="tx-amount" placeholder="0.00" class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-2xl font-bold focus:outline-none focus:border-brand-600"></div>
         <div id="edit-note" class="hidden text-xs bg-amber-50 text-amber-800 rounded-xl p-2 flex justify-between"><span>✏️ 編輯中</span><button type="button" onclick="cancelEdit()" class="font-bold underline">取消</button></div>
         <div><label class="text-xs font-semibold text-slate-500">帳目歸屬</label><div id="group-seg" class="grid grid-cols-3 gap-2 mt-1"></div></div>
         <div id="payer-box" class="hidden"><label class="text-xs font-semibold text-slate-500">💳 實際付款人（用嚟結算）</label><div id="payer-seg" class="grid grid-cols-2 gap-2 mt-1"></div></div>
@@ -147,7 +147,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
       <button type="button" onclick="resetAll()" class="w-full py-2.5 bg-red-50 text-red-600 font-bold text-xs rounded-xl border border-red-200">↺ 重置範例數據</button>
     </section>
   </main>
-  <div id="amount-pad" class="hidden fixed z-40 inset-x-0 max-w-md mx-auto bg-white border-t shadow-xl p-2" style="bottom:calc(7.9rem + env(safe-area-inset-bottom,0px))"><button type="button" onclick="hideAmountPad()">收起 ⌄</button><div id="amount-pad-keys" class="grid grid-cols-4 gap-1"></div></div><div id="add-submit-bar" class="shrink-0 bg-white border-t border-slate-200 px-4 py-2"><button type="button" id="submit-btn" onclick="submitTx()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-2xl shadow-lg active:scale-[.99]">✓ 確定記帳</button></div>
+  <div id="add-submit-bar" class="shrink-0 bg-white border-t border-slate-200 px-4 py-2"><button type="button" id="submit-btn" onclick="submitTx()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-2xl shadow-lg active:scale-[.99]">✓ 確定記帳</button></div>
   <nav id="nav" aria-label="主選單" class="shrink-0 bg-white border-t border-slate-200 py-2 px-3 grid grid-cols-5 text-center" style="padding-bottom:calc(.5rem + env(safe-area-inset-bottom,0px))"></nav>
 </div>
 
@@ -408,7 +408,7 @@ let tt;
 function toast(msg,warn=false){$('toast-msg').textContent=(warn?'⚠️ ':'✅ ')+msg;$('toast').classList.add('on');clearTimeout(tt);tt=setTimeout(()=>$('toast').classList.remove('on'),3500)}
 function switchTab(t){const entering=t==='add'&&U.tab!=='add';U.tab=t;U.limit=50;render();const main=document.querySelector('main');if(main)main.scrollTop=0;if(entering){setTimeout(()=>{if(U.tab==='add')$('tx-amount').focus({preventScroll:true})},100)}}
 function shiftMonth(d){let[y,m]=U.month.split('-').map(Number);m+=d;if(m<1){m=12;y--}if(m>12){m=1;y++}U.month=`${y}-${pad(m)}`;render()}
-function render(){if(U.tab!=='add')hideAmountPad();
+function render(){
  TABS.forEach(([k])=> $('view-'+k).classList.toggle('hidden',k!==U.tab));
  $('nav').innerHTML=TABS.map(([k,i,n])=>`<button type="button" onclick="switchTab('${k}')" aria-current="${k===U.tab?'page':'false'}" class="flex flex-col items-center py-1 min-w-0 ${k===U.tab?'text-brand-600 font-bold':'text-slate-400'} ${k==='add'?'rounded-xl bg-brand-50':''}"><span class="text-lg">${i}</span><span class="text-[10px]">${n}</span></button>`).join('');
  $('monthbar').classList.toggle('hidden',!['budget','records','reports'].includes(U.tab));
@@ -444,18 +444,13 @@ function renderAlerts(){
  if(w.length)$('banner-t').textContent=`【${w[0].g} - ${w[0].name}】${w[0].danger?'已爆預算':'預算達 '+Math.round(w[0].r*100)+'%'}`;
 }
 function toggleInlineRecurring(){ $('tx-repeat-options').classList.toggle('hidden',!$('tx-repeat').checked) }
-function resetForm(){hideAmountPad();$('amount-result').textContent=''; $('tx-repeat').checked=false;$('tx-repeat-frequency').value='monthly';$('tx-repeat-end').value='';toggleInlineRecurring();U.editId=null;U.sub=null;if(U.type==='expense'){U.group=myRole;U.payer=myRole;U.splitMode='equal'};$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
+function resetForm(){ $('tx-repeat').checked=false;$('tx-repeat-frequency').value='monthly';$('tx-repeat-end').value='';toggleInlineRecurring();U.editId=null;U.sub=null;if(U.type==='expense'){U.group=myRole;U.payer=myRole;U.splitMode='equal'};$('tx-amount').value='';$('tx-note').value='';$('tx-date').value=ld();$('banner').classList.add('hidden')}
 function cancelEdit(){resetForm();renderAdd()}
-function amountCalc(raw){const s=String(raw||'').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');if(!s||s.length>70||!/^[0-9.+*/-]+$/.test(s))return null;const p=s.match(/(?:[0-9]+(?:[.][0-9]*)?|[.][0-9]+)|[+*/-]/g);if(!p||p.join('')!==s)return null;let i=0;function num(){let sign=1;if(p[i]==='-'){sign=-1;i++}else if(p[i]==='+')i++;const v=p[i++];if(!v||!/^(?:[0-9]+(?:[.][0-9]*)?|[.][0-9]+)$/.test(v))throw 0;return sign*Number(v)}function term(){let v=num();while(p[i]==='*'||p[i]==='/'){const op=p[i++],n=num();if(op==='/'&&n===0)throw 0;v=op==='*'?v*n:v/n}return v}let v=term();while(p[i]==='+'||p[i]==='-'){const op=p[i++],n=term();v=op==='+'?v+n:v-n}return i===p.length&&Number.isFinite(v)&&v>=0?Math.round(v*100)/100:null}
-function updateAmountResult(){let v=null;try{v=amountCalc($('tx-amount').value)}catch(e){}const raw=$('tx-amount').value;$('amount-result').textContent=raw&&/[+×÷−*/-]/.test(raw)?(v===null?'算式未完成':'= HK$'+v.toFixed(2)):'';return v}
-function hideAmountPad(){$('amount-pad').classList.add('hidden')}
-function showAmountPad(){$('amount-pad').classList.remove('hidden');$('amount-pad-keys').innerHTML=['7','8','9','÷','4','5','6','×','1','2','3','−','.','0','⌫','+'].map(k=>'<button type="button" data-key="'+k+'" class="h-11 rounded-xl text-xl bg-slate-50">'+k+'</button>').join('');$('amount-pad-keys').onclick=e=>{const b=e.target.closest('button[data-key]');if(b)pressAmountKey(b.dataset.key)};updateAmountResult()}
-function pressAmountKey(k){const el=$('tx-amount'),v=el.value;if(k==='⌫')el.value=v.slice(0,-1);else if(v.length>=70)return;else if('÷×−+'.includes(k)){if(!v){if(k==='−')el.value=k}else if('÷×−+'.includes(v.slice(-1)))el.value=v.slice(0,-1)+k;else if(v.slice(-1)!=='.')el.value=v+k}else if(k==='.'){const part=v.split(/[+×÷−]/).pop();if(!part.includes('.'))el.value=v+(part?'':'0')+'.'}else el.value=v+k;updateAmountResult()}
 function submitTx(){
  const repeatEnabled=!U.editId&&$('tx-repeat').checked;
  const repeatFrequency=$('tx-repeat-frequency').value,repeatEnd=$('tx-repeat-end').value;
- const amount=updateAmountResult(),date=$('tx-date').value||ld(),note=$('tx-note').value.trim();
- if(amount===null||amount<=0)return toast('請輸入有效金額或完成算式！',true);
+ const amount=Number($('tx-amount').value),date=$('tx-date').value||ld(),note=$('tx-note').value.trim();
+ if(!Number.isFinite(amount)||amount<=0)return toast('請輸入大於 0 嘅有效金額！',true);
  if(!U.cat||!cat(U.cat)||cat(U.cat).archived)return toast('請選擇有效分類！',true);
  if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return toast('請選擇有效日期！',true);
  if(repeatEnabled&&repeatEnd&&(!dateOnly(repeatEnd)||dateStr(dateOnly(repeatEnd))!==repeatEnd||repeatEnd<date))return toast('週期結束日期不可早於本次交易日期',true);
@@ -526,7 +521,7 @@ function renderRecords(){
  if(list.length>shown.length)html+=`<button type="button" onclick="U.limit+=50;renderRecords()" class="w-full py-2 text-xs font-bold text-brand-700 bg-brand-50 rounded-xl">載入更多（尚有 ${list.length-shown.length} 筆）</button>`;
  $('rec-list').innerHTML=html;
 }
-function editTx(id){hideAmountPad();$('tx-repeat').checked=false;toggleInlineRecurring();const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.group==='共同'&&(!t.shares||Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001)?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
+function editTx(id){$('tx-repeat').checked=false;toggleInlineRecurring();const t=S.tx.find(x=>x.id===id);if(!t)return;Object.assign(U,{editId:id,type:t.type,group:t.group,payer:t.payer||(t.group==='Mr Meow'?'Mr Meow':'Mrs Meow'),splitMode:t.group==='共同'&&(!t.shares||Math.abs(Number(t.shares['Mrs Meow'])-Number(t.shares['Mr Meow']))>0.001)?'custom':'equal',shareMrs:t.shares?.['Mrs Meow']??'',shareMr:t.shares?.['Mr Meow']??'',cat:t.categoryId,sub:t.subCategoryId,tab:'add'});$('tx-amount').value=t.amount;$('tx-date').value=t.date;$('tx-note').value=t.note||'';render()}
 function delTx(id){
  if(!confirm('確定刪除此筆記帳？'))return;
  const oldTx=S.tx,oldPlanned=S.planned;
