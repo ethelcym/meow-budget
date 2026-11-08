@@ -452,10 +452,10 @@ function cancelEdit(){resetForm();renderAdd()}
 function amountCalc(raw){
  const s=String(raw||'').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
  if(!s||s.length>80||!/^[0-9.+*/-]+$/.test(s))return null;
- const p=s.match(/(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)|[+*/-]/g);
+ const p=s.match(/(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)|[+*/-]/g);
  if(!p||p.join('')!==s)return null;
  let i=0;
- function num(){let sign=1;if(p[i]==='-'){sign=-1;i++}else if(p[i]==='+')i++;const v=p[i++];if(!v||!/^([0-9]+(\\.[0-9]*)?|\\.[0-9]+)$/.test(v))throw Error('invalid');return sign*Number(v)}
+ function num(){let sign=1;if(p[i]==='-'){sign=-1;i++}else if(p[i]==='+')i++;const v=p[i++];if(!v||!/^([0-9]+(\.[0-9]*)?|\.[0-9]+)$/.test(v))throw Error('invalid');return sign*Number(v)}
  function term(){let v=num();while(p[i]==='*'||p[i]==='/'){const op=p[i++],n=num();if(op==='/'&&n===0)throw Error('zero');v=op==='*'?v*n:v/n}return v}
  let v=term();while(p[i]==='+'||p[i]==='-'){const op=p[i++],n=term();v=op==='+'?v+n:v-n}
  if(i!==p.length||!Number.isFinite(v)||v<0||v>999999999.99)return null;
